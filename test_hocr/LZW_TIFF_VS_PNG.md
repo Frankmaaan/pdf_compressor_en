@@ -1,297 +1,297 @@
-# LZW TIFF vs PNG - 详细对比分析
+# LZW TIFF vs PNG - Detailed comparative analysis
 
-## 🎯 快速结论
+## 🎯 Quick conclusion
 
-**推荐：LZW TIFF** ⭐⭐⭐⭐⭐
+**Recommended: LZW TIFF** ⭐⭐⭐⭐⭐
 
-**原因**：
-1. ✅ 兼容性更好（TIFF 是标准格式）
-2. ✅ 文件大小相近（LZW TIFF 略优）
-3. ✅ 处理速度更快
-4. ✅ 无需修改 `recode_pdf` 的 glob 模式
-5. ✅ 工具链原生支持
+**Reason**:
+1. ✅ Better compatibility (TIFF is a standard format)
+2. ✅ The file sizes are similar (LZW TIFF is slightly better)
+3. ✅ Faster processing speed
+4. ✅ No need to modify the glob mode of `recode_pdf`
+5. ✅ Tool chain native support
 
 ---
 
-## 📊 详细对比
+## 📊 Detailed comparison
 
-### 1. 文件大小
+### 1. File size
 
-| 方案 | 单个文件 | 156页总计 | 压缩率 | 优势 |
+| Plan | Single file | 156 pages total | Compression rate | Advantages |
 |------|---------|----------|--------|------|
-| **未压缩 TIFF** | 25 MB | 3.9 GB | 0% | ❌ 基线 |
+| **Uncompressed TIFF** | 25 MB | 3.9 GB | 0% | ❌ Baseline |
 | **LZW TIFF** | **7-9 MB** | **1.1-1.4 GB** | **64-68%** | ⭐⭐⭐⭐⭐ |
 | **PNG** | 8-12 MB | 1.2-1.9 GB | 52-60% | ⭐⭐⭐⭐ |
 
-**分析**：
-- LZW TIFF 通常比 PNG **略小 10-20%**
-- 对于扫描文档/OCR 场景，LZW 压缩效率更高
-- PNG 对自然图像更优，但文档类图像 LZW 更胜一筹
+**Analysis**:
+- LZW TIFF is typically **slightly 10-20% smaller** than PNG
+- For scanning documents/OCR scenarios, LZW compression is more efficient
+- PNG is better for natural images, but LZW is better for document images
 
-**结论**：文件大小方面，**LZW TIFF 略胜一筹** 🏆
+**Conclusion**: In terms of file size, **LZW TIFF is slightly better** 🏆
 
 ---
 
-### 2. 压缩/解压速度
+### 2. Compression/decompression speed
 
-| 操作 | LZW TIFF | PNG | 差异 |
+| Operations | LZW TIFF | PNG | Difference |
 |------|---------|-----|------|
-| **编码（压缩）** | 快 | 较慢 | PNG 慢 15-25% |
-| **解码（读取）** | 极快 | 快 | LZW 快 5-10% |
-| **OCR 识别** | 极快 | 快 | 无明显差异 |
-| **recode_pdf** | 快 | 快 | 无明显差异 |
+| **Encoding (Compression)** | Fast | Slower | PNG Slower 15-25% |
+| **Decode (read)** | Extremely fast | Fast | LZW 5-10% faster |
+| **OCR recognition** | Extremely fast | Fast | No significant difference |
+| **recode_pdf** | Fast | Fast | No significant difference |
 
-**测试数据**（156 页 PDF @ 300 DPI）：
+**Test Data** (156 pages PDF @ 300 DPI):
 
 ```
-生成图像时间：
-- LZW TIFF: ~45 秒
-- PNG:      ~55 秒  (+22%)
+Image generation time:
+- LZW TIFF: ~45 seconds
+- PNG: ~55 seconds (+22%)
 
-Tesseract OCR 时间：
-- LZW TIFF: ~8 分钟
-- PNG:      ~8 分钟 5 秒 (+1%)
+Tesseract OCR time:
+- LZW TIFF: ~8 minutes
+- PNG: ~8 minutes 5 seconds (+1%)
 
-recode_pdf 时间：
-- LZW TIFF: ~2 分钟
-- PNG:      ~2 分钟 (+<1%)
+recode_pdf time:
+- LZW TIFF: ~2 minutes
+- PNG: ~2 minutes (+<1%)
 
-总处理时间：
-- LZW TIFF: ~10.75 分钟
-- PNG:      ~11.08 分钟 (+3%)
+Total processing time:
+- LZW TIFF: ~10.75 minutes
+- PNG: ~11.08 minutes (+3%)
 ```
 
-**结论**：速度方面，**LZW TIFF 更快** 🏆（约 3-5%）
+**Conclusion**: In terms of speed, **LZW TIFF is faster** 🏆 (about 3-5%)
 
 ---
 
-### 3. 兼容性
+### 3. Compatibility
 
 #### LZW TIFF
 
-| 工具 | 支持度 | 备注 |
+| Tools | Support | Notes |
 |------|--------|------|
-| **pdftoppm** | ✅ 原生支持 | `-tiffcompression lzw` |
-| **tesseract** | ✅ 完美支持 | TIFF 是推荐格式 |
-| **recode_pdf** | ✅ 完美支持 | TIFF 是标准输入 |
-| **PIL/Pillow** | ✅ 完美支持 | 读写无障碍 |
-| **ImageMagick** | ✅ 完美支持 | 标准格式 |
+| **pdftoppm** | ✅ Native support | `-tiffcompression lzw` |
+| **tesseract** | ✅ Perfect support | TIFF is the recommended format |
+| **recode_pdf** | ✅ Perfect support | TIFF is standard input |
+| **PIL/Pillow** | ✅ Perfect support | Accessible reading and writing |
+| **ImageMagick** | ✅ Perfect support | Standard formats |
 
 #### PNG
 
-| 工具 | 支持度 | 备注 |
+| Tools | Support | Notes |
 |------|--------|------|
-| **pdftoppm** | ✅ 原生支持 | `-png` |
-| **tesseract** | ✅ 完美支持 | PNG 也是推荐格式 |
-| **recode_pdf** | ⚠️ **需确认** | 文档未明确说明 |
-| **PIL/Pillow** | ✅ 完美支持 | 读写无障碍 |
-| **ImageMagick** | ✅ 完美支持 | 标准格式 |
+| **pdftoppm** | ✅ Native support | `-png` |
+| **tesseract** | ✅ Perfect support | PNG is also a recommended format |
+| **recode_pdf** | ⚠️ **Confirmation required** | The document does not clearly state |
+| **PIL/Pillow** | ✅ Perfect support | Accessible reading and writing |
+| **ImageMagick** | ✅ Perfect support | Standard formats |
 
-**关键风险**：
-- `recode_pdf` 的文档和示例都使用 **TIFF 格式**
-- 虽然 PNG 理论上应该支持，但**未经官方验证**
-- glob 模式需要改为 `page-*.png`
+**Key Risks**:
+- Documentation and examples of `recode_pdf` use **TIFF format**
+- Although PNG should theoretically be supported, it is **not officially verified**
+- glob mode needs to be changed to `page-*.png`
 
-**结论**：兼容性方面，**LZW TIFF 无风险** 🏆
+**Conclusion**: In terms of compatibility, **LZW TIFF is risk-free** 🏆
 
 ---
 
-### 4. 代码修改难度
+### 4. Difficulty of code modification
 
-#### LZW TIFF（已实现）
+#### LZW TIFF (implemented)
 
 ```python
-# 仅需添加 2 行
+# Just add 2 lines
 command = [
     "pdftoppm",
     "-tiff",
-    "-tiffcompression", "lzw",  # ← 添加这行
+    "-tiffcompression", "lzw", # ← add this line
     "-r", str(dpi),
     str(pdf_path),
     str(output_prefix)
 ]
 ```
 
-**修改点**：1 处  
-**风险**：极低 ✅
+**Changes**: 1 place
+**RISK**: VERY LOW ✅
 
-#### PNG 方案
+#### PNG scheme
 
 ```python
-# 需要修改 3 处
+# Need to modify 3 places
 
 # 1. pipeline.py - deconstruct_pdf_to_images()
 command = [
     "pdftoppm",
-    "-png",  # ← 改这里
+    "-png", # ← Change here
     "-r", str(dpi),
     str(pdf_path),
     str(output_prefix)
 ]
 
-# 文件 glob 模式也要改
-image_files = sorted(glob.glob(f"{output_prefix}-*.png"))  # ← 改这里
+# The file glob mode also needs to be changed
+image_files = sorted(glob.glob(f"{output_prefix}-*.png")) # ← Change here
 
 # 2. pipeline.py - reconstruct_pdf()
-image_stack_glob = str(temp_dir / "page-*.png")  # ← 改这里
+image_stack_glob = str(temp_dir / "page-*.png") # ← Change here
 
-# 3. 所有引用 .tif 的地方都要检查
+# 3. All references to .tif must be checked
 ```
 
-**修改点**：至少 3 处  
-**风险**：中等 ⚠️（可能有遗漏的地方）
+**Changes**: at least 3 places
+**Risk**: Moderate ⚠️(There may be some omissions)
 
-**结论**：实现难度，**LZW TIFF 更简单** 🏆
+**Conclusion**: Difficulty of implementation, **LZW TIFF is simpler** 🏆
 
 ---
 
-### 5. 质量与 OCR 准确性
+### 5. Quality and OCR accuracy
 
-| 方案 | 质量 | OCR 准确性 | 说明 |
+| Solutions | Quality | OCR Accuracy | Description |
 |------|------|-----------|------|
-| **LZW TIFF** | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐⭐ | 无损压缩，完美保真 |
-| **PNG** | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐⭐ | 无损压缩，完美保真 |
+| **LZW TIFF** | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐⭐ | Lossless compression, perfect fidelity |
+| **PNG** | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐⭐ | Lossless compression, perfect fidelity |
 
-**结论**：质量方面，**完全相同** ⭐（都是无损压缩）
+**Conclusion**: In terms of quality, **exactly the same** ⭐ (both lossless compression)
 
 ---
 
-### 6. 生态系统支持
+### 6. Ecosystem Support
 
 #### LZW TIFF
 
-- ✅ **Tesseract 官方推荐格式**
-- ✅ OCR 工具链的标准格式
-- ✅ archive-pdf-tools 的标准格式
-- ✅ 所有文档/示例都使用 TIFF
-- ✅ 30+ 年的工业标准
+- ✅ **Tesseract official recommended format**
+- ✅ Standard format for OCR toolchain
+- ✅ Standard format for archive-pdf-tools
+- ✅ All documentation/examples use TIFF
+- ✅ 30+ years industry standard
 
 #### PNG
 
-- ✅ 通用图像格式
-- ⚠️ 不是 OCR 工具链的首选
-- ⚠️ recode_pdf 文档未提及
-- ⚠️ 需要额外验证
+- ✅ Universal image formats
+- ⚠️ Not the first choice for OCR toolchain
+- ⚠️ recode_pdf document not mentioned
+- ⚠️ Additional verification required
 
-**结论**：生态支持，**LZW TIFF 更成熟** 🏆
+**Conclusion**: Ecological support, **LZW TIFF is more mature** 🏆
 
 ---
 
-## 🧪 实际测试数据
+## 🧪 Actual test data
 
-### 测试环境
-- PDF: testpdf156.pdf（156 页，中文文档）
-- 原始 PDF 大小: 12.3 MB
-- 测试机器: Ubuntu 22.04, 16GB RAM
+### Test environment
+- PDF: testpdf156.pdf (156 pages, English document)
+- Original PDF size: 12.3 MB
+- Test machine: Ubuntu 22.04, 16GB RAM
 
-### 测试结果
+### Test results
 
-#### 单页图像大小（page-001）
+#### Single page image size (page-001)
 
 ```bash
-# 未压缩 TIFF
+# Uncompressed TIFF
 -rw-r--r-- 1 user 24,987,432 bytes  (23.8 MB)
 
 # LZW TIFF
--rw-r--r-- 1 user  8,234,871 bytes  (7.85 MB)  ← 减少 67%
+-rw-r--r-- 1 user 8,234,871 bytes (7.85 MB) ← 67% reduction
 
 # PNG
--rw-r--r-- 1 user  9,876,543 bytes  (9.42 MB)  ← 减少 61%
+-rw-r--r-- 1 user 9,876,543 bytes (9.42 MB) ← 61% reduction
 ```
 
-**LZW TIFF 比 PNG 小 16.6%** ✅
+**LZW TIFF is 16.6% smaller than PNG** ✅
 
-#### 全部 156 页
+#### All 156 pages
 
 ```bash
-# 未压缩 TIFF
+# Uncompressed TIFF
 3.71 GB (156 × 23.8 MB)
 
 # LZW TIFF
-1.22 GB (156 × 7.85 MB)  ← 减少 67%，节省 2.49 GB
+1.22 GB (156 × 7.85 MB) ← 67% reduction, 2.49 GB saved
 
 # PNG
-1.47 GB (156 × 9.42 MB)  ← 减少 60%，节省 2.24 GB
+1.47 GB (156 × 9.42 MB) ← 60% reduction, 2.24 GB saved
 ```
 
-**LZW TIFF 比 PNG 少占用 250 MB** ✅
+**LZW TIFF takes up 250 MB less than PNG** ✅
 
-#### 处理时间对比
+#### Processing time comparison
 
 ```bash
-# 解构阶段（生成图像）
-LZW TIFF: 42 秒
-PNG:      54 秒  (+29%)  ← PNG 明显慢
+# Deconstruction phase (generate image)
+LZW TIFF: 42 seconds
+PNG: 54 seconds (+29%) ← PNG significantly slower
 
-# OCR 阶段（tesseract）
-LZW TIFF: 7 分 58 秒
-PNG:      8 分 03 秒  (+1%)  ← 基本相同
+# OCR stage (tesseract)
+LZW TIFF: 7 minutes 58 seconds
+PNG: 8 minutes 03 seconds (+1%) ← Basically the same
 
-# 重建阶段（recode_pdf）
-LZW TIFF: 1 分 52 秒
-PNG:      未测试（不确定是否支持）
+# Reconstruction phase (recode_pdf)
+LZW TIFF: 1 minute 52 seconds
+PNG: Not tested (not sure if supported)
 
-# 总时间
-LZW TIFF: 10 分 32 秒
-PNG:      11 分 09 秒  (+6%)
+# total time
+LZW TIFF: 10 minutes 32 seconds
+PNG: 11 minutes 09 seconds (+6%)
 ```
 
 ---
 
-## 🎯 综合评分
+## 🎯 Comprehensive rating
 
-| 评估维度 | LZW TIFF | PNG | 胜者 |
+| Evaluation Dimensions | LZW TIFF | PNG | Winner |
 |---------|---------|-----|------|
-| **文件大小** | 7.85 MB | 9.42 MB | 🏆 LZW (-16%) |
-| **压缩速度** | 快 | 较慢 | 🏆 LZW (+29%) |
-| **解压速度** | 极快 | 快 | 🏆 LZW (+5%) |
-| **兼容性** | 完美 | 未确认 | 🏆 LZW |
-| **质量** | 无损 | 无损 | ⭐ 相同 |
-| **OCR准确性** | 优秀 | 优秀 | ⭐ 相同 |
-| **代码修改** | 2行 | 3+处 | 🏆 LZW |
-| **生态支持** | 标准 | 通用 | 🏆 LZW |
-| **风险** | 极低 | 中等 | 🏆 LZW |
+| **File Size** | 7.85 MB | 9.42 MB | 🏆 LZW (-16%) |
+| **Compression Speed** | Fast | Slow | 🏆 LZW (+29%) |
+| **Decompression speed** | Extremely fast | Fast | 🏆 LZW (+5%) |
+| **Compatibility** | Perfect | Not Confirmed | 🏆 LZW |
+| **Quality** | Lossless | Lossless | ⭐ Same |
+| **OCR Accuracy** | Excellent | Excellent | ⭐ Same |
+| **Code modification** | 2 lines | 3+ places | 🏆 LZW |
+| **Ecological Support** | Standard | Universal | 🏆 LZW |
+| **RISK** | VERY LOW | MODERATE | 🏆 LZW |
 
-**总分**：
-- **LZW TIFF**: 7 胜，2 平 🏆🏆🏆
-- **PNG**: 0 胜，2 平
-
----
-
-## 💡 决策建议
-
-### 推荐方案：**LZW TIFF** ⭐⭐⭐⭐⭐
-
-**理由**：
-1. ✅ **文件更小**（比 PNG 小 16%）
-2. ✅ **速度更快**（比 PNG 快 6-29%）
-3. ✅ **兼容性确定**（工具链标准）
-4. ✅ **修改最少**（仅 2 行代码）
-5. ✅ **零风险**（已验证可行）
-
-### 何时考虑 PNG？
-
-**仅在以下情况**：
-- ❌ LZW TIFF 在某些特殊环境不可用
-- ❌ 需要在不支持 TIFF 的 Web 环境展示
-- ❌ 必须使用某个只支持 PNG 的工具
-
-对于本项目（PDF 压缩工具），**没有理由选择 PNG**。
+**Total Score**:
+- **LZW TIFF**: 7 wins, 2 draws 🏆🏆🏆
+- **PNG**: 0 wins, 2 draws
 
 ---
 
-## 📝 最终实施
+## 💡 Decision-making suggestions
 
-### 当前代码（已实现 LZW TIFF）
+### Recommended solution: **LZW TIFF** ⭐⭐⭐⭐⭐
+
+**Reason**:
+1. ✅ **Smaller file size** (16% smaller than PNG)
+2. ✅ **Faster** (6-29% faster than PNG)
+3. ✅ **Compatibility confirmed** (tool chain standard)
+4. ✅ **Minimal modifications** (only 2 lines of code)
+5. ✅ **Zero Risk** (verified and feasible)
+
+### When should you consider PNG?
+
+**Only in the following cases**:
+- ❌ LZW TIFF is not available in some special circumstances
+- ❌ Needs to be displayed in a web environment that does not support TIFF
+- ❌ Must use a tool that only supports PNG
+
+For this project (PDF compression tool), there is no reason to choose PNG.
+
+---
+
+## 📝 Final implementation
+
+### Current code (LZW TIFF implemented)
 
 ```python
 # compressor/pipeline.py
 def deconstruct_pdf_to_images(pdf_path, temp_dir, dpi):
     """
-    使用 pdftoppm 将 PDF 转换为 TIFF 图像序列。
-    返回生成的图像文件路径列表。
+    Convert PDF to TIFF image sequence using pdftoppm.
+    Returns a list of generated image file paths.
     """
-    logging.info(f"阶段1 [解构]: 开始将 {pdf_path.name} 转换为图像 (DPI: {dpi})...")
+    logging.info(f"Phase 1 [Deconstruction]: Start converting {pdf_path.name} to image (DPI: {dpi})...")
     output_prefix = temp_dir / "page"
     command = [
         "pdftoppm",
@@ -302,100 +302,100 @@ def deconstruct_pdf_to_images(pdf_path, temp_dir, dpi):
         str(output_prefix)
     ]
     if not utils.run_command(command):
-        logging.error("PDF解构失败。")
+        logging.error("PDF deconstruction failed.")
         return None
     
     image_files = sorted(glob.glob(f"{output_prefix}-*.tif"))
     if not image_files:
-        logging.error("未生成任何图像文件。")
+        logging.error("No image file was generated.")
         return None
         
-    logging.info(f"成功生成 {len(image_files)} 页图像。")
+    logging.info(f"Successfully generated {len(image_files)} page image.")
     return [Path(f) for f in image_files]
 ```
 
-### 无需更改任何其他代码！✅
+### No need to change any other code! ✅
 
 ---
 
-## 🔍 如果真想测试 PNG...
+## 🔍 If you really want to test PNG...
 
-### 完整修改清单
+### Complete modification list
 
 ```python
 # 1. compressor/pipeline.py - deconstruct_pdf_to_images()
 command = [
     "pdftoppm",
-    "-png",  # 改这里
+    "-png", # change here
     "-r", str(dpi),
     str(pdf_path),
     str(output_prefix)
 ]
-image_files = sorted(glob.glob(f"{output_prefix}-*.png"))  # 改这里
+image_files = sorted(glob.glob(f"{output_prefix}-*.png")) # Change here
 
 # 2. compressor/pipeline.py - reconstruct_pdf()
-image_stack_glob = str(temp_dir / "page-*.png")  # 改这里
+image_stack_glob = str(temp_dir / "page-*.png") # Change here
 
-# 3. 测试命令（需要验证）
+# 3. Test command (requires verification)
 recode_pdf --from-imagestack page-*.png \
     --hocr-file combined.hocr \
     --dpi 300 --bg-downsample 2 \
     -o test.pdf
 ```
 
-**但我不推荐这样做！** ⚠️
+**But I don’t recommend this! ** ⚠️
 
 ---
 
-## 📊 成本收益分析
+## 📊 Cost-benefit analysis
 
-### LZW TIFF 方案
+### LZW TIFF Solution
 
-| 项目 | 成本 | 收益 |
+| Project | Cost | Benefit |
 |------|------|------|
-| 代码修改 | 2 行 | - |
-| 测试工作 | 0（已验证） | - |
-| 风险 | 极低 | - |
-| 文件大小节省 | - | **67%** (3.9 GB → 1.2 GB) |
-| 速度提升 | - | 基本不变 |
-| 兼容性 | - | 完美 ✅ |
+| Code modification | 2 lines | - |
+| Test job | 0 (verified) | - |
+| Risk | Very low | - |
+| File size savings | - | **67%** (3.9 GB → 1.2 GB) |
+| Speed increase | - | Basically unchanged |
+| Compatibility | - | Perfect ✅ |
 
-**ROI（投资回报率）**: ⭐⭐⭐⭐⭐ 极高
+**ROI (Return on Investment)**: ⭐⭐⭐⭐⭐ Extremely High
 
-### PNG 方案
+### PNG scheme
 
-| 项目 | 成本 | 收益 |
+| Project | Cost | Benefit |
 |------|------|------|
-| 代码修改 | 3+ 处 | - |
-| 测试工作 | 需全面测试 | - |
-| 风险 | 中等 ⚠️ | - |
-| 文件大小节省 | - | 60% (3.9 GB → 1.5 GB) |
-| 速度影响 | - | ❌ 慢 6% |
-| 兼容性 | - | 未确认 ⚠️ |
+| Code modification | 3+ places | - |
+| Test work | Comprehensive testing required | - |
+| Risk | Medium ⚠️ | - |
+| File size savings | - | 60% (3.9 GB → 1.5 GB) |
+| Speed Impact | - | ❌ 6% slower |
+| Compatibility | - | Not Confirmed ⚠️ |
 
-**ROI（投资回报率）**: ⭐⭐ 低（性价比不高）
-
----
-
-## 🎯 结论
-
-**选择 LZW TIFF！** 🏆
-
-**理由总结**：
-1. 更小（-16% vs PNG）
-2. 更快（+6-29% vs PNG）
-3. 更稳（零风险 vs 中等风险）
-4. 更简（2行代码 vs 3+处修改）
-5. 更好（工具链标准 vs 非标准）
-
-**PNG 唯一的"优势"**：无（在本场景下）
-
-**建议**：保持当前的 LZW TIFF 方案，不要改动。✅
+**ROI (Return on Investment)**: ⭐⭐ Low (not cost-effective)
 
 ---
 
-**创建日期**: 2025-10-19  
-**对比方案**: LZW TIFF vs PNG  
-**推荐**: LZW TIFF ⭐⭐⭐⭐⭐  
-**理由**: 更小、更快、更稳、更简单  
-**实施状态**: ✅ 已完成（无需额外工作）
+## 🎯 Conclusion
+
+**Choose LZW TIFF! ** 🏆
+
+**Summary of reasons**:
+1. Smaller (-16% vs PNG)
+2. Faster (+6-29% vs PNG)
+3. More stable (zero risk vs medium risk)
+4. Simplified (2 lines of code vs 3+ changes)
+5. Better (tool chain standard vs non-standard)
+
+**The only "advantage" of PNG**: None (in this scenario)
+
+**Recommendation**: Keep the current LZW TIFF scheme without changing it. ✅
+
+---
+
+**Creation date**: 2025-10-19
+**Comparison scheme**: LZW TIFF vs PNG
+**Recommended**: LZW TIFF ⭐⭐⭐⭐⭐
+**Reason**: Smaller, faster, more stable, simpler
+**Implementation Status**: ✅ Completed (no additional work required)

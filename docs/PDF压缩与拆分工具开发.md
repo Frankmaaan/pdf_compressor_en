@@ -1,255 +1,255 @@
 
 
-# **基于archive-pdf-tools的职称申报PDF文件自动化压缩与拆分策略研究报告**
+# **Research report on automatic compression and splitting strategies for professional title declaration PDF files based on archive-pdf-tools**
 
-## **第一部分：执行摘要与基本概念**
+## **Part 1: Executive Summary and Basic Concepts**
 
-本报告旨在为一项特定职称申报工作提供一个技术解决方案，核心目标是开发一个基于Python的命令行工具，用于在WSL/Ubuntu 24.04环境下对PDF文件进行自动化压缩与拆分。该工具旨在确保所有提交的PDF文件均满足小于2MB的硬性大小限制，同时在可能的情况下最大化文件质量，并在必要时将单个文件拆分为至多四个符合大小限制的部分。
+This report aims to provide a technical solution for a specific professional title application. The core goal is to develop a Python-based command line tool for automated compression and splitting of PDF files in the WSL/Ubuntu 24.04 environment. This tool is designed to ensure that all submitted PDF files meet the hard size limit of less than 2MB, while maximizing file quality where possible and, where necessary, splitting individual files into up to four parts that meet the size limit.
 
-### **1.1 项目任务与战略目标**
+### **1.1 Project tasks and strategic goals**
 
-项目的核心任务是创建一个自动化辅助工具，以应对职称申报中对PDF附件的严格要求。具体需求可归纳如下：
+The core task of the project is to create an automated auxiliary tool to cope with the strict requirements for PDF attachments in professional title applications. Specific needs can be summarized as follows:
 
-* **核心功能**：将输入的单个或批量PDF文件压缩至指定大小（默认为2MB）。  
-* **输入方式**：支持单个文件路径和整个目录作为输入。  
-* **分层策略**：根据源文件的大小，采用不同的压缩策略，以平衡文件质量和大小。  
-* **拆分机制**：当无法在可接受的质量范围内将单个文件压缩至目标大小时，自动将其拆分为多个（最多四个）符合大小要求的文件。  
-* **技术栈**：项目指定在WSL/Ubuntu 24.04环境下，利用archive-pdf-tools工具集中的recode\_pdf命令作为核心压缩引擎。
+* **Core Features**: Compress input single or batch PDF files to the specified size (default is 2MB).
+* **Input method**: Supports single file path and entire directory as input.
+* **Layered Strategy**: Based on the size of the source file, different compression strategies are adopted to balance file quality and size.
+* **Split mechanism**: When a single file cannot be compressed to the target size within an acceptable quality range, automatically split it into multiple (up to four) files that meet the size requirements.
+* **Technology stack**: The project is specified in the WSL/Ubuntu 24.04 environment, using the recode\_pdf command in the archive-pdf-tools tool set as the core compression engine.
 
-### **1.2 核心技术澄清：recode\_pdf作为重建引擎而非压缩工具**
+### **1.2 Core technology clarification: recode\_pdf is used as a reconstruction engine rather than a compression tool**
 
-在深入探讨具体策略之前，必须澄清一个关于核心工具recode\_pdf的关键概念。项目初步分析认为recode\_pdf是一个直接的PDF压缩工具，即输入一个PDF，输出一个更小的PDF。然而，深入研究其工作原理后发现，这种理解并不完全准确。recode\_pdf的本质是一个**PDF重建引擎**，而非一个简单的文件压缩器 1。
+Before diving into specific strategies, a key concept about the core tool recode_pdf must be clarified. Preliminary analysis of the project believes that recode\_pdf is a direct PDF compression tool, that is, inputting a PDF and outputting a smaller PDF. However, a closer look at how it works reveals that this understanding isn't entirely accurate. The essence of recode\_pdf is a **PDF reconstruction engine**, not a simple file compressor 1.
 
-它的主要工作流程并非直接修改输入的PDF，而是基于一组光栅图像（如TIFF、JPEG2000）和一个包含文本内容及坐标信息的hOCR文件，来从零开始构建一个全新的、高度优化的PDF文件 1。recode\_pdf利用混合光栅内容（Mixed Raster Content, MRC）压缩技术，将页面分离为高分辨率的前景层（文本、线条）和低分辨率的背景层（图片、渐变），从而实现极高的压缩率 1。
+Its main workflow is not to directly modify the input PDF, but to build a new, highly optimized PDF file from scratch based on a set of raster images (such as TIFF, JPEG2000) and an hOCR file containing text content and coordinate information. recode\_pdf uses Mixed Raster Content (MRC) compression technology to separate the page into a high-resolution foreground layer (text, lines) and a low-resolution background layer (pictures, gradients), thereby achieving an extremely high compression rate 1.
 
-虽然recode\_pdf提供了一个--from-pdf选项，看似可以直接处理PDF，但其官方文档明确指出该功能“未经充分测试”（not well tested），在处理每页包含多个图像或复杂布局的PDF时，其稳定性和效果均无法保证 1。因此，对于一个要求稳定可靠的生产力工具而言，依赖此实验性功能是不可取的。
+Although recode\_pdf provides a --from-pdf option, which seems to be able to process PDF directly, its official documentation clearly states that this function is "not well tested", and its stability and effect cannot be guaranteed when processing PDFs that contain multiple images or complex layouts per page. 1. Therefore, for a productivity tool that requires stability and reliability, relying on this experimental feature is not advisable.
 
-### **1.3 “解构-分析-重建”（DAR）三阶段处理流程**
+### **1.3 "Deconstruction-Analysis-Reconstruction" (DAR) three-stage processing process**
 
-基于对recode\_pdf工作原理的正确理解，一个稳健的解决方案必须采用一个多阶段的处理流程。本报告提出一个名为“解构-分析-重建”（Deconstruct-Analyze-Reconstruct, DAR）的三阶段架构，作为整个项目的技术基石。
+Based on a correct understanding of how recode\_pdf works, a robust solution must adopt a multi-stage processing flow. This report proposes a three-stage architecture called "Deconstruct-Analyze-Reconstruct (DAR)" as the technical cornerstone of the entire project.
 
-1. **解构（Deconstruction）**：此阶段的目标是将源PDF的每一页转换为高质量的光栅图像。这是后续所有处理的基础。图像的分辨率和格式将直接影响最终输出的质量。  
-2. **分析（Analysis）**：此阶段对解构出的图像进行光学字符识别（OCR），生成hOCR（HTML-based OCR）格式的文件。hOCR文件不仅包含识别出的文本，还精确记录了每个字符、单词和行的位置坐标，这是重建可搜索、可复制文本层的关键 1。  
-3. **重建（Reconstruction）**：这是最后也是最核心的阶段。利用recode\_pdf命令，将前两个阶段生成的图像序列和hOCR文件作为输入，通过MRC技术重建出一个全新的、高度压缩且符合PDF/A和PDF/UA标准的PDF文件 1。
+1. **Deconstruction**: The goal of this stage is to convert each page of the source PDF into a high-quality raster image. This is the basis for all subsequent processing. The resolution and format of the image will directly affect the quality of the final output.
+2. **Analysis**: At this stage, optical character recognition (OCR) is performed on the deconstructed image and a file in hOCR (HTML-based OCR) format is generated. hOCR files not only contain recognized text, but also accurately record the positional coordinates of each character, word and line, which is key to reconstructing searchable, copyable text layers1.
+3. **Reconstruction**: This is the last and most core stage. Use the recode\_pdf command to take the image sequence and hOCR file generated in the first two stages as input, and use MRC technology to reconstruct a new, highly compressed PDF file that complies with PDF/A and PDF/UA standards 1.
 
-这个DAR流程虽然比直接压缩更为复杂，涉及更多的中间步骤和依赖工具，但它完全符合recode\_pdf的设计哲学，能够最大程度地发挥其压缩潜力，并确保输出文件的质量和合规性。这一架构的转变，意味着项目需要管理的不仅仅是recode\_pdf本身，而是一个由多个命令行工具组成的完整处理链。
+Although this DAR process is more complex than direct compression and involves more intermediate steps and dependent tools, it is fully consistent with the design philosophy of recode\_pdf and can maximize its compression potential and ensure the quality and compliance of the output files. This architectural change means that the project needs to manage not only recode\_pdf itself, but a complete processing chain composed of multiple command line tools.
 
-### **1.4 报告结构与导航**
+### **1.4 Report Structure and Navigation**
 
-本报告的后续部分将围绕DAR架构展开，从工具链的深度分析到核心算法的设计，再到具体的Python实现蓝图，最后探讨高级调优技巧和项目总结。报告将系统性地阐述如何构建一个能够满足所有需求的、强大而可靠的自动化工具。
+The subsequent parts of this report will focus on the DAR architecture, from the in-depth analysis of the tool chain to the design of the core algorithm, to the specific Python implementation blueprint, and finally discuss advanced tuning techniques and project summary. The report will systematically explain how to build a powerful and reliable automation tool that can meet all needs.
 
-## **第二部分：核心工具链深度分析**
+## **Part 2: In-depth analysis of the core tool chain**
 
-实现DAR流程需要一个协同工作的工具链。本节将对构成该流程的每个关键命令行工具进行详细的技术审查，阐明其在流程中的角色、选择该工具的理由，并深入探讨与本项目直接相关的命令和参数。
+Implementing the DAR process requires a tool chain that works together. This section will provide a detailed technical review of each of the key command line tools that make up the process, clarifying its role in the process, the rationale for choosing that tool, and diving into the commands and parameters directly relevant to this project.
 
-### **2.1 解构阶段：pdftoppm (来自 poppler-utils)**
+### **2.1 Deconstruction phase: pdftoppm (from poppler-utils)**
 
-* **角色**：在DAR流程的第一阶段，pdftoppm负责将输入的PDF文件逐页转换为光栅图像。这些图像是后续OCR分析和最终PDF重建的唯一素材来源。  
-* **选择理由**：在众多PDF到图像的转换工具中（如pdfimages或Ghostscript），pdftoppm因其对输出参数的精确控制而被选中。特别是其-r参数，可以直接指定输出图像的DPI（每英寸点数），这对于控制图像质量和文件大小的初始平衡至关重要。此外，它支持多种输出格式（如TIFF、PNG、JPEG），其中TIFF格式因其无损压缩特性，成为进行高质量OCR前的理想选择。  
-* **关键命令语法**：  
-  * **基本用法**：pdftoppm \-tiff \-r 300 input.pdf output\_prefix  
-  * **参数详解**：  
-    * \-tiff: 指定输出格式为TIFF。TIFF格式能无损地保存图像信息，确保OCR的准确性。  
-    * \-r \<dpi\>: 设置输出图像的分辨率。这是控制质量与大小的第一个杠杆。一个较高的初始值（如300 DPI）是保证文本清晰度的基础 3。  
-    * input.pdf: 源PDF文件。  
-    * output\_prefix: 输出图像文件的前缀。pdftoppm会自动为每一页生成带序号的文件，例如output\_prefix-01.tif, output\_prefix-02.tif等。
+* **Role**: In the first stage of the DAR process, pdftoppm is responsible for converting input PDF files into raster images page by page. These images are the only source of material for subsequent OCR analysis and final PDF reconstruction.
+* **Reason for Selection**: Among many PDF to image conversion tools (such as pdfimages or Ghostscript), pdftoppm was selected for its precise control over output parameters. In particular, its -r parameter allows you to directly specify the DPI (dots per inch) of the output image, which is crucial for controlling the initial balance of image quality and file size. In addition, it supports multiple output formats (such as TIFF, PNG, JPEG), among which the TIFF format is an ideal choice for high-quality OCR due to its lossless compression characteristics.
+* **Key command syntax**:
+* **Basic usage**: pdftoppm \-tiff \-r 300 input.pdf output\_prefix
+* **Detailed explanation of parameters**:
+* \-tiff: Specify the output format as TIFF. The TIFF format can preserve image information losslessly and ensure the accuracy of OCR.
+* \-r \<dpi\>: Set the resolution of the output image. This is the first lever to control quality and size. A higher initial value (such as 300 DPI) is the basis for ensuring text clarity 3.
+* input.pdf: source PDF file.
+* output\_prefix: The prefix of the output image file. pdftoppm will automatically generate files with serial numbers for each page, such as output\_prefix-01.tif, output\_prefix-02.tif, etc.
 
-### **2.2 分析阶段：tesseract OCR引擎**
+### **2.2 Analysis phase: tesseract OCR engine**
 
-* **角色**：在分析阶段，tesseract负责处理由pdftoppm生成的图像，并提取文本信息。其关键任务是生成recode\_pdf所必需的hOCR文件。  
-* **选择理由**：Tesseract是目前最先进、应用最广泛的开源OCR引擎之一，由Google维护。它支持多种语言，并且能够输出hOCR格式。hOCR是一种基于HTML的开放标准，它不仅包含了识别出的文本，还通过HTML标签精确地标记了文本块、段落、行、单词和字符的边界框（bounding box）坐标 4。这些精确的坐标信息是recode\_pdf能够将文本层完美地叠加在背景图像之上，从而生成可搜索PDF的基础 1。  
-* **关键命令语法**：  
-  * **基本用法**：tesseract input\_image.tif output\_hocr \-l chi\_sim hocr  
-  * **参数详解**：  
-    * input\_image.tif: 输入的单页图像文件。  
-    * output\_hocr: 输出的hOCR文件名前缀（会自动添加.hocr扩展名）。  
-    * \-l \<lang\>: 指定识别语言。对于中文文档，应使用chi\_sim（简体中文）或chi\_tra（繁体中文）。  
-    * hocr: 指定输出格式为hOCR。
+* **Role**: During the analysis phase, tesseract is responsible for processing the images generated by pdftoppm and extracting text information. Its key task is to generate hOCR files necessary for recode\_pdf.
+* **Reason for selection**: Tesseract is one of the most advanced and widely used open source OCR engines currently maintained by Google. It supports multiple languages ​​and is able to output hOCR format. hOCR is an open standard based on HTML that not only contains recognized text, but also accurately marks the bounding box (bounding box) coordinates of text blocks, paragraphs, lines, words and characters through HTML tags 4. These precise coordinate information are the basis for recode\_pdf's ability to perfectly overlay text layers on top of background images to generate searchable PDFs 1.
+* **Key command syntax**:
+* **Basic usage**: tesseract input\_image.tif output\_hocr \-l chi\_sim hocr
+* **Detailed explanation of parameters**:
+* input\_image.tif: input single page image file.
+* output\_hocr: output hOCR file name prefix (.hocr extension will be added automatically).
+* \-l \<lang\>: Specify the recognition language. For English documents, chi\_sim (Simplified English) or chi\_tra (Traditional English) should be used.
+* hocr: Specify the output format as hOCR.
 
-### **2.3 重建阶段：recode\_pdf (来自 archive-pdf-tools)**
+### **2.3 Reconstruction phase: recode\_pdf (from archive-pdf-tools)**
 
-* **角色**：作为DAR流程的最后一环，recode\_pdf是实现高压缩率的核心。它接收图像序列和hOCR文件，利用MRC技术生成最终的PDF文件。  
-* **MRC技术简介**：混合光栅内容（MRC）模型是一种先进的图像分割和压缩技术。它将一页内容智能地分解为三个部分：  
-  1. **背景层（Background Layer）**：包含页面上的所有彩色图像、照片和渐变背景。这一层通常会被大幅度降采样并使用有损压缩（如JPEG2000），因为它对视觉细节的要求不高 1。  
-  2. **前景层（Foreground Layer）**：包含文本和线条艺术等高频信息。这一层通常也使用有损压缩，但分辨率相对较高。  
-  3. 二值掩码层（Binary Mask Layer）：这是一个高分辨率的黑白图像，精确地定义了前景层中哪些像素是可见的（即文本和线条的形状）。这一层使用无损压缩算法（如JBIG2或CCITT G4），以确保文本边缘的锐利度 1。  
-     recode\_pdf将这三层在最终的PDF页面中叠加起来，从而在保持文本极高清晰度的同时，大幅压缩背景图像的大小，实现整体文件尺寸的显著减小。  
-* **关键参数深度解析**：  
-  * \--dpi \<int\>: 指定输入图像的分辨率。这个值应与pdftoppm生成图像时使用的DPI保持一致。它直接决定了掩码层和前景层的基准分辨率，是影响文本清晰度的最重要参数 1。  
-  * \--bg-downsample \<int\>: 背景层降采样因子。这是控制文件大小的关键参数。一个为N的值意味着背景层的分辨率将被降低为dpi / N。例如，--dpi 300和--bg-downsample 3将使得背景层的有效分辨率为100 DPI，而前景文本仍然保持300 DPI的清晰度。这是在不牺牲文本可读性的前提下减小文件体积的最有效手段 1。  
-  * \--mask-compression \<jbig2|ccitt\>: 指定掩码层的压缩算法。jbig2提供比ccitt更高的无损压缩率，但历史上存在一些专利问题（尽管多数已过期）。ccitt（通常指CCITT Group 4）是一个广泛支持且无专利问题的传真压缩标准，作为备选方案，压缩效果稍逊于jbig2 6。  
-  * \--from-imagestack '\<glob\>': 指定输入的图像文件序列。它接受一个glob模式，例如'temp\_dir/page-\*.tif'，来匹配所有页面图像 1。  
-  * \--hocr-file \<file\>: 指定由tesseract生成的hOCR文件。
+* **Role**: As the last link of the DAR process, recode\_pdf is the core to achieve high compression rate. It receives image sequences and hOCR files and uses MRC technology to generate the final PDF file.
+* **MRC Technology Introduction**: The Mixed Raster Content (MRC) model is an advanced image segmentation and compression technology. It intelligently breaks down a page of content into three parts:
+1. **Background Layer**: Contains all color images, photos, and gradient backgrounds on the page. This layer is usually heavily downsampled and uses lossy compression (such as JPEG2000) because it requires less visual detail1.
+2. **Foreground Layer**: Contains high-frequency information such as text and line art. This layer also typically uses lossy compression, but at a relatively higher resolution.
+3. Binary Mask Layer: This is a high-resolution black and white image that precisely defines which pixels in the foreground layer are visible (i.e. the shape of text and lines). This layer uses a lossless compression algorithm (such as JBIG2 or CCITT G4) to ensure the sharpness of text edges 1.
+recode\_pdf superimposes these three layers in the final PDF page, thereby greatly compressing the size of the background image while maintaining extremely high definition of the text, achieving a significant reduction in the overall file size.
+* **In-depth analysis of key parameters**:
+* \--dpi \<int\>: Specify the resolution of the input image. This value should be consistent with the DPI used by pdftoppm when generating the image. It directly determines the base resolution of the mask layer and foreground layer, and is the most important parameter affecting text clarity1.
+* \--bg-downsample \<int\>: Background layer downsampling factor. This is a key parameter that controls file size. A value of N means that the background layer's resolution will be reduced to dpi/N. For example, --dpi 300 and --bg-downsample 3 will make the background layer have an effective resolution of 100 DPI, while the foreground text remains sharp at 300 DPI. This is the most effective way to reduce file size without sacrificing text readability1.
+* \--mask-compression \<jbig2|ccitt\>: Specify the compression algorithm of the mask layer. jbig2 offers higher lossless compression than ccitt, but has some history of patent issues (although most have expired). ccitt (often referred to as CCITT Group 4) is a widely supported, patent-free fax compression standard that offers slightly less effective compression than jbig2 6 as an alternative.
+* \--from-imagestack '\<glob\>': Specifies the input image file sequence. It accepts a glob pattern, such as 'temp\_dir/page-\*.tif', to match all page images 1.
+* \--hocr-file \<file\>: Specify the hOCR file generated by tesseract.
 
-### **2.4 应急预案：qpdf 用于PDF拆分与处理**
+### **2.4 Emergency plan: qpdf is used for PDF splitting and processing**
 
-* **角色**：当所有压缩尝试都失败，无法在质量底线之上将文件压缩到目标大小时，qpdf将作为应急工具，负责对PDF文件进行精确的页面拆分。  
-* **选择理由**：在Linux命令行环境下，有多种工具可以处理PDF拆分，如pdftk、Ghostscript和pdfseparate。选择qpdf是基于以下几点综合考量：  
-  * **现代且活跃**：qpdf是一个仍在积极开发和维护的项目，与许多Linux发行版的最新版本兼容性良好。  
-  * **官方仓库支持**：qpdf是Ubuntu 24.04标准软件源的一部分，安装简便 (sudo apt install qpdf)。相比之下，pdftk已从许多主流发行版的官方源中移除，需要通过snap或编译Java版本来安装，增加了部署复杂性 7。  
-  * **强大的语法**：qpdf提供了非常清晰和强大的页面选择语法，可以轻松地从一个或多个文件中提取任意页面范围，并生成新的PDF文件，这正是本项目拆分逻辑所需要的 7。  
-  * **性能**：虽然在某些特定场景下pdftk或Ghostscript可能更快，但qpdf在内容保留和元数据处理方面表现出色，且对于本项目涉及的文件大小和操作，其性能完全足够 8。  
-* **关键命令语法**：  
-  * **提取页面范围**：qpdf input.pdf \--pages. \<start\>-\<end\> \-- output.pdf  
-  * **参数详解**：  
-    * \--pages. \<start\>-\<end\>: 这是qpdf页面选择的核心。.代表输入文件本身，避免重复书写文件名。\<start\>-\<end\>定义了要提取的页面范围（包含首尾）。  
-    * \--: 分隔符，用于将页面选择参数与输出文件名清晰地分开 7。  
-  * **示例**：要从一个名为document.pdf的文件中提取第1到10页，生成part1.pdf，命令为：qpdf document.pdf \--pages. 1-10 \-- part1.pdf。
+* **Role**: When all compression attempts fail to compress the file to the target size above the quality baseline, qpdf will serve as an emergency tool, responsible for precise page splitting of PDF files.
+* **Reason for selection**: In the Linux command line environment, there are many tools that can handle PDF splitting, such as pdftk, Ghostscript and pdfseparate. The choice of qpdf is based on the following comprehensive considerations:
+* **Modern and Active**: qpdf is a project that is still actively developed and maintained, and is compatible with the latest versions of many Linux distributions.
+* **Official repository support**: qpdf is part of the Ubuntu 24.04 standard software sources and is easy to install (sudo apt install qpdf). In contrast, pdftk has been removed from the official sources of many mainstream distributions and needs to be installed via snap or compiled Java version, increasing deployment complexity 7.
+* **Powerful syntax**: qpdf provides a very clear and powerful page selection syntax, which can easily extract arbitrary page ranges from one or more files and generate new PDF files, which is exactly what this project split logic requires 7.
+* **Performance**: While pdftk or Ghostscript may be faster in some specific scenarios, qpdf excels at content preservation and metadata handling, and its performance is completely adequate for the file sizes and operations involved in this project. 8.
+* **Key command syntax**:
+* **Extract page range**: qpdf input.pdf \--pages. \<start\>-\<end\> \-- output.pdf
+* **Detailed explanation of parameters**:
+* \--pages. \<start\>-\<end\>: This is the core of qpdf page selection. . represents the input file itself to avoid repeatedly writing the file name. \<start\>-\<end\> defines the page range to be extracted (including the beginning and the end).
+* \--: delimiter to clearly separate page selection parameters from output file names 7.
+* **Example**: To extract pages 1 to 10 from a file named document.pdf and generate part1.pdf, the command is: qpdf document.pdf \--pages. 1-10 \-- part1.pdf.
 
-### **表1：核心工具链组件分析**
+### **Table 1: Analysis of core tool chain components**
 
-| 工具名称 | 所属软件包 | 在流程中的主要角色 | 关键命令/参数 | 示例用法 |
+| Tool name | Software package to which it belongs | Main role in the process | Key commands/parameters | Example usage |
 | :---- | :---- | :---- | :---- | :---- |
-| pdftoppm | poppler-utils | **解构**：将PDF页面转换为光栅图像 | \-r \<dpi\>, \-tiff, \-png | pdftoppm \-tiff \-r 300 in.pdf out\_prefix |
-| tesseract | tesseract-ocr | **分析**：从图像中进行OCR并生成hOCR文件 | \<input\> \<output\>, \-l \<lang\>, hocr | tesseract page-01.tif page-01 \-l chi\_sim hocr |
-| recode\_pdf | archive-pdf-tools | **重建**：基于图像和hOCR重建高压缩PDF | \--from-imagestack, \--hocr-file, \--dpi, \--bg-downsample | recode\_pdf \--from-imagestack 'imgs/\*.tif' \--hocr-file data.hocr \--dpi 300 \--bg-downsample 3 \-o out.pdf |
-| qpdf | qpdf | **应急拆分**：当压缩失败时，按页码拆分PDF | \--pages. \<start\>-\<end\> \-- | qpdf in.pdf \--pages. 1-10 \-- part1.pdf |
+| pdftoppm | poppler-utils | **Deconstruction**: Convert PDF pages to raster images | \-r \<dpi\>, \-tiff, \-png | pdftoppm \-tiff \-r 300 in.pdf out\_prefix |
+| tesseract | tesseract-ocr | **Analysis**: OCR from image and generate hOCR file | \<input\> \<output\>, \-l \<lang\>, hocr | tesseract page-01.tif page-01 \-l chi\_sim hocr |
+| recode\_pdf | archive-pdf-tools | **Reconstruct**: Reconstruct highly compressed PDF based on images and hOCR | \--from-imagestack, \--hocr-file, \--dpi, \--bg-downsample | recode\_pdf \--from-imagestack 'imgs/\*.tif' \--hocr-file data.hocr \--dpi 300 \--bg-downsample 3 \-o out.pdf |
+| qpdf | qpdf | **Emergency Split**: Split PDF by page number when compression fails | \--pages. \<start\>-\<end\> \-- | qpdf in.pdf \--pages. 1-10 \-- part1.pdf |
 
-## **第三部分：核心算法：分层策略与迭代优化**
+## **Part 3: Core Algorithm: Hierarchical Strategy and Iterative Optimization**
 
-本项目的“智能”体现在其核心算法中，该算法将用户定义的分层需求转化为一个确定性的、可执行的程序逻辑。它不仅定义了处理不同大小文件的策略，还设计了一个迭代优化循环，以在质量和大小之间寻找最佳平衡点。
+The “intelligence” of this project is reflected in its core algorithm, which converts user-defined hierarchical requirements into a deterministic, executable program logic. It not only defines strategies for handling files of different sizes, but also designs an iterative optimization loop to find the best balance between quality and size.
 
-### **3.1 定义处理层级**
+### **3.1 Define processing levels**
 
-根据输入PDF文件的大小（记为 ），算法将文件归入以下四个处理层级之一：
+Depending on the size of the input PDF file (denoted as ), the algorithm classifies the file into one of the following four processing levels:
 
-* **层级 0 (忽略)**：如果 ，文件已满足要求，无需任何处理，直接跳过。  
-* **层级 1 (高质量压缩)**：如果 ，这类文件体积不大，压缩目标是在保证最高质量的前提下，将文件大小降至2MB以下。算法将从非常高的质量设置开始，并进行最少的参数调整。  
-* **层级 2 (平衡压缩)**：如果 ，这类文件体积适中。主要目标仍然是在不拆分的情况下压缩到2MB以下。但与层级1不同，算法会更积极地降低质量参数，如果最终质量下降到不可接受的程度，则触发拆分机制。  
-* **层级 3 (极限压缩)**：如果 ，这类文件体积很大。由于2MB和最多拆分4个文件的限制是硬性要求，算法将以满足这些限制为首要目标，质量成为次要考虑因素。压缩策略将非常激进，并且很可能直接启动拆分预案。
+* **Level 0 (ignored)**: If , the file meets the requirements, no processing is required, and it is skipped directly.
+* **Level 1 (High Quality Compression)**: If the size of this type of file is not large, the compression goal is to reduce the file size to less than 2MB while ensuring the highest quality. The algorithm will start at very high quality settings with minimal parameter adjustments.
+* **Level 2 (Balanced Compression)**: If , these files are of moderate size. The main goal is still to compress to under 2MB without splitting. But unlike level 1, the algorithm will reduce quality parameters more aggressively, triggering a split mechanism if the final quality drops to an unacceptable level.
+* **Level 3 (Extreme Compression)**: If , these files are very large. Since the limits of 2MB and splitting up to 4 files are hard requirements, the algorithm will have the primary goal of meeting these limits, with quality becoming a secondary consideration. The compression strategy will be very aggressive and a split plan will likely be initiated directly.
 
-### **3.2 迭代优化循环：寻找最优参数的启发式搜索**
+### **3.2 Iterative optimization loop: heuristic search to find optimal parameters**
 
-为了给每个文件找到最合适的压缩参数，本方案设计了一个迭代优化循环。这并非一个耗时的暴力搜索，而是一个从高质量到低质量的引导式下降过程，旨在以最少的尝试次数找到满足条件的参数组合。
+In order to find the most suitable compression parameters for each file, this program designs an iterative optimization loop. This is not a time-consuming brute force search, but a guided descent process from high quality to low quality, aiming to find a parameter combination that meets the conditions in the least number of attempts.
 
-**算法流程概述**：
+**Algorithm Process Overview**:
 
-1. **初始化**：根据文件所属的层级，选择一组初始的高质量参数。例如，对于层级1的文件，可以从dpi=300, bg-downsample=1开始。  
-2. **执行DAR流程**：使用当前参数集，完整地执行一次“解构-分析-重建”流程，生成一个临时的输出PDF文件。  
-3. **检查条件**：获取输出文件的大小，并与目标大小（2MB）进行比较。  
-4. **判定成功/失败**：  
-   * **成功**：如果输出文件大小小于等于目标大小，则认为找到了合适的参数。循环终止，该文件处理完毕。  
-   * **失败**：如果输出文件仍然过大，则需要降低质量参数，进入下一步。  
-5. **参数降级策略**：参数的降低遵循一个预定义的、旨在最小化质量损失的顺序。  
-   * **优先增加背景降采样 (bg-downsample)**：首先，逐步增加bg-downsample的值（例如，从1到2，再到3，最高到4或5）。这一步通常能带来显著的文件大小缩减，而对文本清晰度的影响最小，因为只降低了背景图像的质量 1。  
-   * **其次降低分辨率 (dpi)**：当bg-downsample达到其上限（或继续增加效果不明显）后，开始逐步降低dpi的值（例如，从300 DPI降至250 DPI，再到200 DPI）。降低DPI会同时影响前景和背景，对文本质量的冲击更直接，因此放在第二步 3。  
-6. **循环或退出**：使用新的参数集，返回第2步，重复整个流程。如果参数已经降低到了预设的“质量底线”仍然无法满足大小要求，则循环终止，并判定为压缩失败。
+1. **Initialization**: Select an initial set of high-quality parameters based on the level to which the file belongs. For example, for level 1 files, you can start with dpi=300, bg-downsample=1.
+2. **Execute DAR process**: Use the current parameter set to completely execute the "deconstruction-analysis-reconstruction" process and generate a temporary output PDF file.
+3. **Check condition**: Get the size of the output file and compare it with the target size (2MB).
+4. **Determine success/failure**:
+* **Success**: If the output file size is less than or equal to the target size, it is considered that suitable parameters have been found. The loop terminates and the file is processed.
+* **Failure**: If the output file is still too large, you need to reduce the quality parameters and go to the next step.
+5. **Parameter Downgrade Strategy**: Parameter reduction follows a predefined sequence aimed at minimizing quality loss.
+* **Prioritize increasing background downsample (bg-downsample)**: First, gradually increase the value of bg-downsample (for example, from 1 to 2, then to 3, up to 4 or 5). This step usually results in significant file size reduction with minimal impact on text clarity, since only the quality of the background image is reduced1.
+* **Secondly reduce the resolution (dpi)**: When bg-downsample reaches its upper limit (or the effect of continuing to increase is not obvious), start to gradually reduce the dpi value (for example, from 300 DPI to 250 DPI, and then to 200 DPI). Lowering the DPI will affect both the foreground and the background, which will have a more direct impact on the text quality, so it is placed in the second step 3.
+6. **Loop or Exit**: Use the new parameter set, return to step 2, and repeat the entire process. If the parameters have been reduced to the preset "quality bottom line" and still cannot meet the size requirements, the loop is terminated and the compression is determined to have failed.
 
-### **3.3 定义质量底线**
+### **3.3 Define quality bottom line**
 
-为了防止算法无休止地降低质量，产生无法阅读的输出文件，必须设定一个“质量底线”。这个底线主要通过设定一个最低可接受的DPI值来体现，例如，min\_dpi=150。150 DPI通常被认为是屏幕阅读和非高质量打印的最低可接受分辨率 3。
+In order to prevent the algorithm from endlessly reducing quality and producing unreadable output files, a "quality bottom line" must be set. This bottom line is mainly reflected by setting a minimum acceptable DPI value, for example, min\_dpi=150. 150 DPI is generally considered the minimum acceptable resolution for screen reading and non-high-quality printing 3.
 
-当迭代优化循环中的dpi参数降低到这个值，并且bg-downsample也已达到上限，但生成的文件大小依然超标时，算法将停止进一步的压缩尝试。此时，对于配置为允许拆分的文件，将触发下一阶段的应急拆分协议。
+When the dpi parameter in the iterative optimization loop is reduced to this value and bg-downsample has reached the upper limit, but the generated file size still exceeds the standard, the algorithm will stop further compression attempts. At this time, for files configured to allow splitting, the next stage of the emergency splitting protocol will be triggered.
 
-### **表2：分层压缩策略矩阵**
+### **Table 2: Layered compression strategy matrix**
 
-下表将上述的分层逻辑和迭代策略具体化，形成一个清晰的、可直接用于编程实现的参数矩阵。
+The following table embodies the above-mentioned hierarchical logic and iteration strategy, forming a clear parameter matrix that can be directly used for programming implementation.
 
-| 输入大小层级 | 主要目标 | 初始 dpi | 初始 bg-downsample | 参数迭代顺序 | 质量底线 (min\_dpi) | 压缩失败后操作 |
+| Input size hierarchy | Primary target | Initial dpi | Initial bg-downsample | Parameter iteration order | Quality bottom line (min\_dpi) | Action after compression failure |
 | :---- | :---- | :---- | :---- | :---- | :---- | :---- |
-| **层级 1** (2-10MB) | 尽可能高的质量 | 300 | 1 | 1\. 增 bg-downsample (至3) 2\. 降 dpi (至200) | 200 | 触发拆分 |
-| **层级 2** (10-50MB) | 优先保证不拆分 | 300 | 2 | 1\. 增 bg-downsample (至4) 2\. 降 dpi (至150) | 150 | 触发拆分 |
-| **层级 3** (\>50MB) | 满足大小和拆分数量限制 | 200 | 3 | 1\. 增 bg-downsample (至5) 2\. 降 dpi (至150) | 150 | 强制拆分（可接受质量损失） |
+| **Level 1** (2-10MB) | Highest possible quality | 300 | 1 | 1\. Increase bg-downsample (to 3) 2\. Decrease dpi (to 200) | 200 | Trigger splitting |
+| **Level 2** (10-50MB) | Prioritize no splitting | 300 | 2 | 1\. Increase bg-downsample (to 4) 2\. Decrease dpi (to 150) | 150 | Trigger splitting |
+| **Level 3** (\>50MB) | Meet size and split number limits | 200 | 3 | 1\. Increase bg-downsample (to 5) 2\. Decrease dpi (to 150) | 150 | Force split (acceptable quality loss) |
 
-## **第四部分：应急协议：PDF拆分逻辑**
+## **Part 4: Emergency Protocol: PDF Splitting Logic**
 
-当一个文件经过迭代压缩后，仍然无法在质量底线之上满足大小要求时，应急拆分协议将被激活。这是确保所有文件最终都能提交的最后一道防线。
+When a file, after iterative compression, still cannot meet the size requirements above the quality baseline, the emergency split protocol is activated. This is the last line of defense to ensure that all documents are ultimately submitted.
 
-### **4.1 拆分的触发条件**
+### **4.1 Trigger conditions for split**
 
-拆分协议的启动条件非常明确：当且仅当第三部分描述的迭代压缩循环因达到质量底线（min\_dpi）而终止，且最终生成的PDF文件大小依然超过2MB时。
+The starting condition of the splitting protocol is very clear: if and only if the iterative compression loop described in Part 3 is terminated because the quality bottom line (min\_dpi) is reached, and the final generated PDF file size still exceeds 2MB.
 
-这个触发机制对于不同层级的文件有不同的含义：
+This triggering mechanism has different meanings for files at different levels:
 
-* 对于**层级1和层级2**的文件，触发拆分是为了**保护质量**，避免生成分辨率过低的文档。  
-* 对于**层级3**的文件，触发拆分则是因为即使在最低质量设置下，**单个文件的体积也无法被压缩到2MB以下**。
+* For **Level 1 and Level 2** files, triggering splitting is to **protect quality** and avoid generating documents with too low resolution.
+* For **Level 3** files, splitting is triggered because even at the lowest quality settings, **the size of a single file cannot be compressed below 2MB**.
 
-### **4.2 计算拆分点**
+### **4.2 Calculate split point**
 
-拆分的核心约束是最多4个部分。算法需要智能地决定最佳的拆分数量（记为 ，其中 ）。
+The core constraint for splitting is a maximum of 4 parts. The algorithm needs to intelligently decide the optimal number of splits (denoted as , where ).
 
-* 初始策略：基于页数的平均分配  
-  对于一个总页数为 N 的PDF，算法首先会尝试最简单的 k=2 的拆分方案：  
-  * 第一部分：第1页 到 第  页  
-  * 第二部分：第  页 到 第  页  
-* 引入预测性拆分启发式算法  
-  一个简单的平均分配策略可能效率低下。例如，一个100MB的文件，拆分为两个50MB的部分后，每个部分仍然远大于压缩目标，直接对其中一个部分执行完整的、耗时的DAR压缩流程，结果很可能是失败。这将浪费大量计算资源。  
-  为了优化这一过程，可以引入一个**预测性拆分启发式算法**。该算法根据原始文件大小来预估一个更合理的初始拆分数量 。  
-  * 启发式规则：可以设定一个经验阈值，例如，认为一个25MB的PDF块是比较有希望被压缩到2MB的。那么初始拆分数量可以这样计算：
+* Initial strategy: average allocation based on page number
+For a PDF with a total number of pages N, the algorithm will first try the simplest k=2 splitting solution:
+* Part 1: Page 1 to Page
+* Part Two: Page to Page
+* Introduce predictive splitting heuristic algorithm
+A simple even distribution strategy may be inefficient. For example, after a 100MB file is split into two 50MB parts, each part is still much larger than the compression target. If you directly perform a complete and time-consuming DAR compression process on one of the parts, the result is likely to be failure. This will waste a lot of computing resources.
+To optimize this process, a **predictive splitting heuristic** can be introduced. This algorithm estimates a more reasonable initial number of splits based on the original file size.
+* Heuristic rules: You can set an experience threshold. For example, it is considered that a 25MB PDF block is more likely to be compressed to 2MB. Then the initial split number can be calculated like this:
 
-  * **应用**：对于一个100MB的文件，该公式会建议 。算法将直接尝试4路拆分，而不是从2路拆分开始，从而大大提高了效率。对于一个30MB的文件，公式建议 ，算法将从2路拆分开始。
+  * **Application**: For a 100MB file, this formula would suggest . The algorithm will try a 4-way split directly instead of starting with a 2-way split, greatly improving efficiency. For a 30MB file, the formula suggests, the algorithm will start with a 2-way split.
 
-### **4.3 迭代式拆分与处理**
+### **4.3 Iterative splitting and processing**
 
-拆分过程本身也是一个迭代验证的过程：
+The splitting process itself is also an iterative verification process:
 
-1. **选择拆分数量 k**：根据上一节的启发式算法确定一个初始的拆分数量 。  
-2. **生成子文档**：使用qpdf将原始PDF按照  路拆分的页码范围，生成  个临时的PDF子文档。  
-3. **验证第一个子文档**：选取第一个子文档（例如，页码范围为  到  的部分），对其执行完整的、使用最激进参数（例如dpi=150, bg-downsample=4）的DAR压缩流程。  
-4. **评估结果**：  
-   * **成功**：如果第一个子文档被成功压缩到2MB以下，那么可以乐观地认为其他大小相近的子文档也能成功。此时，脚本将继续处理剩余的  个子文档。  
-   * **失败**：如果连第一个子文档都无法压缩达标，说明当前的拆分粒度仍然太大。算法将增加拆分数量（），只要 ，就返回第2步，重新生成更小的子文档并再次验证。  
-5. **最终处理**：一旦找到了一个可行的拆分数量 ，使得所有子文档都能被成功压缩，整个拆分流程就宣告成功。如果尝试到  仍然失败，则报告该文件处理失败，需要人工干预。
+1. **Select the number of splits k**: Determine an initial number of splits based on the heuristic algorithm in the previous section.
+2. **Generate subdocuments**: Use qpdf to split the original PDF according to the page number range and generate a temporary PDF subdocument.
+3. **Verify the first subdocument**: Select the first subdocument (for example, the part with page numbers ranging from to ), and perform a complete DAR compression process on it using the most aggressive parameters (for example, dpi=150, bg-downsample=4).
+4. **Evaluation results**:
+* **Success**: If the first subdocument is successfully compressed to less than 2MB, then you can be optimistic that other subdocuments of similar size will also be successful. At this point, the script continues processing the remaining subdocuments.
+* **Failure**: If even the first subdocument cannot be compressed up to standard, it means that the current splitting granularity is still too large. The algorithm will increase the number of splits () as long as , return to step 2, regenerate smaller subdocuments and verify again.
+5. **Final processing**: Once a feasible number of splits is found so that all sub-documents can be successfully compressed, the entire split process is declared successful. If the attempt still fails, it is reported that the file processing failed and manual intervention is required.
 
-### **4.4 拆分后文件管理**
+### **4.4 File Management after Split**
 
-成功拆分并压缩后，脚本必须负责清晰地管理输出文件和临时文件。
+After successful splitting and compression, the script must take care of clear management of output files and temporary files.
 
-* **命名规范**：输出的多个文件需要有逻辑清晰的命名，以便用户理解它们的顺序。例如，对于源文件mydocument.pdf，拆分后的文件应命名为mydocument\_part1.pdf, mydocument\_part2.pdf,...。  
-* **临时文件清理**：在整个拆分和压缩过程中，会产生大量的临时文件，包括：  
-  * 由qpdf生成的未压缩的PDF子文档。  
-  * 每个子文档解构出的所有页面图像。  
-  * 每个子文档生成的hOCR文件。  
-    脚本必须确保在处理完一个文件（无论成功或失败）后，所有相关的临时文件都被彻底删除，以避免占用不必要的磁盘空间。
+* **Naming convention**: Multiple output files need to have logical and clear names so that users can understand their order. For example, for the source file mydocument.pdf, the split files should be named mydocument\_part1.pdf, mydocument\_part2.pdf,...
+* **Temporary file cleaning**: During the entire splitting and compression process, a large number of temporary files will be generated, including:
+* Uncompressed PDF subdocument generated by qpdf.
+* All page images deconstructed from each subdocument.
+* hOCR files generated for each subdocument.
+The script must ensure that after processing a file (regardless of success or failure), all related temporary files are completely deleted to avoid taking up unnecessary disk space.
 
-## **第五部分：Python实现蓝图**
+## **Part 5: Python Implementation Blueprint**
 
-本节将提供一个具体的软件工程指南，用于构建这个PDF处理工具。内容包括推荐的项目结构、命令行接口设计，以及核心逻辑的伪代码实现。
+This section will provide a specific software engineering guide for building this PDF processing tool. The content includes recommended project structure, command line interface design, and pseudocode implementation of core logic.
 
-### **5.1 推荐的项目结构**
+### **5.1 Recommended project structure**
 
-一个清晰、模块化的项目结构对于代码的可维护性和可扩展性至关重要。推荐采用以下结构：
+A clear, modular project structure is essential for code maintainability and scalability. The following structure is recommended:
 
 pdf-compressor/  
-├── main.py             \# 主程序入口，负责解析命令行参数和分发任务  
+├── main.py \# Main program entry, responsible for parsing command line parameters and distributing tasks
 ├── compressor/  
 │   ├── \_\_init\_\_.py  
-│   ├── pipeline.py     \# 封装完整的DAR处理流程  
-│   ├── strategy.py     \# 实现分层策略和迭代优化循环  
-│   ├── splitter.py     \# 实现PDF拆分逻辑  
-│   └── utils.py        \# 包含辅助函数，如文件大小获取、临时文件管理等  
-├── tests/              \# 单元测试目录  
-└── README.md           \# 项目说明文档
+│ ├── pipeline.py \# Encapsulates the complete DAR processing flow
+│ ├── strategy.py \# Implement hierarchical strategy and iterative optimization loop
+│ ├── splitter.py \# Implement PDF splitting logic
+│ └── utils.py \# Contains auxiliary functions, such as file size acquisition, temporary file management, etc.
+├── tests/ \# unit test directory
+└── README.md \# Project description document
 
-这种结构将不同的功能逻辑分离到不同的模块中，使得代码更易于理解和测试。
+This structure separates different functional logic into different modules, making the code easier to understand and test.
 
-### **5.2 命令行接口（CLI）设计**
+### **5.2 Command Line Interface (CLI) Design**
 
-使用Python标准库中的argparse模块可以方便地构建一个功能强大且用户友好的命令行接口。
+A powerful and user-friendly command line interface can be easily built using the argparse module in the Python standard library.
 
-**设计的CLI参数**：
+**Designed CLI parameters**:
 
-* \--input \<path\> (必需): 指定输入的源路径，可以是一个PDF文件或一个包含PDF文件的目录。  
-* \--output-dir \<path\> (必需): 指定处理后文件的存放目录。  
-* \--target-size \<int\> (可选): 指定目标文件大小，单位为MB。默认值为 2。  
-* \--allow-splitting (可选): 一个布尔标志。如果提供此参数，则允许在压缩失败时启用拆分功能。默认为不启用。  
-* \--max-splits \<int\> (可选): 允许的最大拆分数量。默认值为 4。
+* \--input \<path\> (required): Specify the input source path, which can be a PDF file or a directory containing PDF files.
+* \--output-dir \<path\> (required): Specify the directory where the processed files are stored.
+* \--target-size \<int\> (optional): Specify the target file size in MB. The default value is 2.
+* \--allow-splitting (optional): A boolean flag. If this parameter is provided, allows splitting to be enabled if compression fails. The default is not enabled.
+* \--max-splits \<int\> (optional): Maximum number of splits allowed. The default value is 4.
 
-**示例调用**：
+**Example call**:
 
 Bash
 
-\# 处理单个文件，允许拆分  
+\# Process a single file, allowing splitting
 python main.py \--input /path/to/large.pdf \--output-dir /path/to/output \--allow-splitting
 
-\# 处理整个目录，使用默认设置  
+\# Process the entire directory, using default settings
 python main.py \--input /path/to/source\_folder \--output-dir /path/to/output
 
-### **5.3 核心逻辑伪代码**
+### **5.3 Core logic pseudo code**
 
-以下伪代码勾勒了程序核心模块的实现逻辑，可作为编写Python代码的直接参考。
+The following pseudocode outlines the implementation logic of the core module of the program and can be used as a direct reference for writing Python code.
 
-#### **main.py 的主逻辑**
+#### **Main logic of main.py**
 
 Python
 
@@ -263,7 +263,7 @@ function main():
     else:  
         process\_file(args.input, args)
 
-#### **pipeline.py 的文件处理逻辑**
+#### **File processing logic of pipeline.py**
 
 Python
 
@@ -278,7 +278,7 @@ function process\_file(file\_path, args):
     tier \= determine\_tier(original\_size\_mb)  
     strategy\_params \= get\_strategy\_for\_tier(tier)
 
-    \# 运行迭代压缩  
+    \# Run iterative compression
     success, result\_path \= run\_iterative\_compression(file\_path, strategy\_params, args)
 
     if success:  
@@ -289,43 +289,43 @@ function process\_file(file\_path, args):
     else:  
         print(f"Compression failed for {file\_path}. Splitting not enabled.")
 
-#### **strategy.py 的迭代压缩逻辑**
+#### **Iteration compression logic of strategy.py**
 
 Python
 
 function run\_iterative\_compression(file\_path, strategy, args):  
-    \# generate\_parameter\_sequence 会根据策略生成一系列 (dpi, bg\_downsample) 组合  
+    \# generate\_parameter\_sequence will generate a series of (dpi, bg\_downsample) combinations according to the policy
     for params in generate\_parameter\_sequence(strategy):  
         temp\_dir \= create\_temporary\_directory()  
         try:  
-            \# 1\. 解构: 调用 pdftoppm  
+            \# 1\. Deconstruction: call pdftoppm
             image\_files \= deconstruct\_pdf\_to\_images(file\_path, temp\_dir, params.dpi)
 
-            \# 2\. 分析: 调用 tesseract  
+            \# 2\. Analysis: Call tesseract
             hocr\_file \= analyze\_images\_to\_hocr(image\_files, temp\_dir)
 
-            \# 3\. 重建: 调用 recode\_pdf  
+            \# 3\. Reconstruction: call recode\_pdf
             output\_pdf\_path \= reconstruct\_pdf(image\_files, hocr\_file, temp\_dir, params)
 
-            \# 4\. 检查大小  
+            \# 4\. Check size
             if get\_file\_size\_in\_mb(output\_pdf\_path) \<= args.target\_size:  
                 move\_file(output\_pdf\_path, args.output\_dir)  
                 return (True, final\_path)  
         finally:  
             cleanup\_directory(temp\_dir)
 
-    \# 如果循环结束仍未成功  
+    \# If the loop ends without success
     return (False, None)
 
-### **5.4 使用 subprocess 模块管理外部进程**
+### **5.4 Use the subprocess module to manage external processes**
 
-在Python中调用命令行工具的最佳实践是使用subprocess模块。
+The best practice for calling command line tools in Python is to use the subprocess module.
 
-* **推荐方法**：使用subprocess.run()函数，因为它提供了最灵活和最简单的接口。  
-* **关键参数**：  
-  * check=True: 如果被调用的命令返回非零退出码（表示执行出错），subprocess.run()将抛出一个CalledProcessError异常。这使得错误处理变得简单直接。  
-  * capture\_output=True 和 text=True: 用于捕获命令的标准输出和标准错误流，便于日志记录和调试。  
-* **示例**：构建一个调用pdftoppm的函数。
+* **Recommended method**: Use the subprocess.run() function because it provides the most flexible and simplest interface.
+* **Key Parameters**:
+* check=True: If the called command returns a non-zero exit code (indicating an execution error), subprocess.run() will throw a CalledProcessError exception. This makes error handling simple and straightforward.
+* capture\_output=True and text=True: Used to capture the standard output and standard error streams of commands to facilitate logging and debugging.
+* **Example**: Build a function that calls pdftoppm.
 
 Python
 
@@ -347,71 +347,71 @@ def deconstruct\_pdf\_to\_images(pdf\_path, output\_dir, dpi):
         print(f"Error during PDF deconstruction: {e.stderr}")  
         raise  \# Re-raise the exception to be handled by the caller
 
-### **5.5 错误处理与临时文件管理**
+### **5.5 Error handling and temporary file management**
 
-一个健壮的工具必须能够妥善处理异常情况并保证系统清洁。
+A robust tool must be able to handle exceptions appropriately and keep the system clean.
 
-* **使用 try...finally**：这是确保临时文件和目录总是被清理的关键。无论try块中的代码是成功执行还是抛出异常，finally块中的清理代码都将被执行。  
-* **使用 tempfile 模块**：Python的tempfile模块可以安全地创建临时目录和文件，是管理中间产物的理想选择。tempfile.TemporaryDirectory()上下文管理器可以在退出作用域时自动清理目录。  
-* **日志记录**：使用logging模块来记录每个文件的处理进度、所使用的参数、外部命令的输出以及任何发生的错误。这对于调试和追踪批量处理任务的状态至关重要。
+* **Use try...finally**: This is key to ensuring that temporary files and directories are always cleaned up. Regardless of whether the code in the try block executes successfully or throws an exception, the cleanup code in the finally block will be executed.
+* **Use the tempfile module**: Python's tempfile module can safely create temporary directories and files and is ideal for managing intermediate products. The tempfile.TemporaryDirectory() context manager can automatically clean up the directory when exiting the scope.
+* **Logging**: Use the logging module to record the processing progress of each file, the parameters used, the output of external commands, and any errors that occur. This is essential for debugging and tracking the status of batch processing tasks.
 
-## **第六部分：高级调优与结论**
+## **Part 6: Advanced Tuning and Conclusion**
 
-本节将总结报告中提出的最优策略，并为希望进一步探索质量与压缩极限的用户提供高级参数调优的指导。
+This section summarizes the optimal strategies proposed in the report and provides guidance on advanced parameter tuning for users who wish to further explore the limits of quality and compression.
 
-### **6.1 最优策略总结**
+### **6.1 Summary of optimal strategies**
 
-本报告提出的最优策略是一个系统性的、多阶段的解决方案，其核心是：
+The optimal strategy proposed in this report is a systematic, multi-stage solution whose core is:
 
-1. **采用“解构-分析-重建”（DAR）架构**：这是利用recode\_pdf强大压缩能力的最可靠方法，避免了其不稳定的--from-pdf模式。  
-2. **实施分层迭代优化算法**：根据文件大小采用不同强度的压缩策略，并通过一个从高质量到低质量的启发式搜索循环，智能地寻找最佳压缩参数。  
-3. **集成基于qpdf的应急拆分协议**：当压缩无法满足要求时，通过一个高效、可靠的拆分机制作为最终保障，确保所有文件都能符合提交规范。
+1. **Adopt "Deconstruction-Analysis-Reconstruction" (DAR) architecture**: This is the most reliable way to take advantage of the powerful compression capabilities of recode\_pdf, avoiding its unstable --from-pdf mode.
+2. **Implement hierarchical iterative optimization algorithm**: adopt compression strategies of different strengths according to file size, and intelligently find the best compression parameters through a heuristic search loop from high quality to low quality.
+3. **Integrated emergency splitting protocol based on qpdf**: When compression cannot meet the requirements, an efficient and reliable splitting mechanism is used as the final guarantee to ensure that all files can meet the submission specifications.
 
-这个组合策略在自动化、效率和输出质量之间取得了良好的平衡，能够胜任职称申报工作的辅助任务。
+This combined strategy strikes a good balance between automation, efficiency and output quality, and is capable of assisting in job title declarations.
 
-### **6.2 高级参数调优：斜率（Slope）参数**
+### **6.2 Advanced parameter tuning: Slope parameter**
 
-除了dpi和bg-downsample，recode\_pdf还提供了一些更底层的参数，可以对JPEG2000压缩质量进行更精细的控制。其中最重要的是前景层和背景层的“斜率”（slope）参数 6。
+In addition to dpi and bg-downsample, recode\_pdf also provides some lower-level parameters that can provide more fine-grained control over JPEG2000 compression quality. The most important of these is the "slope" parameter 6 of the foreground and background layers.
 
-* **fg\_slope 和 bg\_slope**：这两个参数直接控制JPEG2000编码器的量化级别，数值越小，压缩率越高，但图像质量损失也越大。fg\_slope控制前景层（主要是文本周围的像素），bg\_slope控制背景层。  
-* **调优场景**：在标准迭代循环失败的边缘情况下，可以尝试微调这些斜率值。例如，如果文本边缘出现轻微模糊，但背景压缩已经足够，可以适当**增大**fg\_slope的值以提高前景质量，同时略微**减小**bg\_slope的值来补偿因此增加的文件大小。  
-* **参考值**：根据公开的资料，archive.org在处理书籍时使用了一些默认设置。在追求高压缩率时，他们使用bg\_slope=44250（配合3倍降采样）；在追求更高精度时，则使用bg\_slope=43500（不进行降采样）6。这些数值可以作为高级调优的起点。
+* **fg\_slope and bg\_slope**: These two parameters directly control the quantization level of the JPEG2000 encoder. The smaller the value, the higher the compression rate, but the greater the image quality loss. fg\_slope controls the foreground layer (mainly the pixels around the text), and bg\_slope controls the background layer.
+* **Tuning Scenarios**: In edge cases where the standard iteration loop fails, you can try to fine-tune these slope values. For example, if the text edges are slightly blurred but the background compression is sufficient, you can increase the value of fg\_slope appropriately to improve foreground quality, while slightly decreasing the value of bg\_slope to compensate for the increased file size.
+* **Reference Value**: According to public information, archive.org uses some default settings when processing books. When pursuing high compression rates, they use bg\_slope=44250 (with 3x downsampling); when pursuing higher accuracy, they use bg\_slope=43500 (without downsampling) 6. These values ​​can serve as a starting point for advanced tuning.
 
-### **表3：recode\_pdf高级参数调优**
+### **Table 3: recode\_pdf advanced parameter tuning**
 
-| 参数名称 | 默认值/参考值 | 效果描述 | 推荐用例 |
+| Parameter name | Default value/reference value | Effect description | Recommended use cases |
 | :---- | :---- | :---- | :---- |
-| fg\_slope | 参考: 45000 | 控制前景层（文本）的JPEG2000压缩质量。数值越大，质量越高，文件越大。 | 当文本清晰度不足，但文件大小接近目标时，可适当增大此值。 |
-| bg\_slope | 参考: 44250, 43500 | 控制背景层（图像）的JPEG2000压缩质量。数值越大，质量越高，文件越大。 | 当背景图像出现过多噪点或色块，但整体文件大小有富余时，可增大此值。反之，可减小此值以进一步压缩。 |
+| fg\_slope | Ref: 45000 | Controls the JPEG2000 compression quality of the foreground layer (text). The higher the number, the higher the quality and the larger the file size. | When the text clarity is insufficient but the file size is close to the target, this value can be increased appropriately. |
+| bg\_slope | Ref: 44250, 43500 | Controls the JPEG2000 compression quality of the background layer (image). The higher the number, the higher the quality and the larger the file size. | This value can be increased when the background image has too much noise or color blocks, but the overall file size is sufficient. Conversely, this value can be reduced for further compression. |
 
-### **6.3 性能考量与局限性**
+### **6.3 Performance considerations and limitations**
 
-* **性能影响**：DAR流程是计算密集型的。其中，pdftoppm的图像渲染和tesseract的OCR过程是主要的性能瓶颈，特别是对于页数多、分辨率高的文档。处理一个大的PDF文件可能需要数分钟时间。  
-* **局限性**：  
-  * **内容类型**：该流程最适用于扫描生成的、以文本为主的文档。对于原生数字PDF（矢量图形和嵌入字体），将其光栅化再重建可能会导致质量下降和文件体积不降反增。  
-  * **复杂布局**：对于包含大量图表、公式或复杂排版的页面，OCR的准确性和recode\_pdf的分割效果可能会受到影响。  
-  * **hOCR依赖**：recode\_pdf的当前版本强依赖hOCR文件，无法在没有文本层的情况下单独压缩图像并生成PDF 1。
+* **Performance Impact**: The DAR process is computationally intensive. Among them, the image rendering of pdftoppm and the OCR process of tesseract are the main performance bottlenecks, especially for documents with many pages and high resolution. Processing a large PDF file may take several minutes.
+* **Limitations**:
+* **Content Type**: This process is best suited for scan-generated, text-based documents. For native digital PDFs (vector graphics and embedded fonts), rasterizing and rebuilding them may result in a loss of quality and an increase in file size.
+* **Complex Layout**: For pages containing a large number of charts, formulas or complex layout, the accuracy of OCR and the segmentation effect of recode\_pdf may be affected.
+* **hOCR Dependency**: The current version of recode\_pdf is strongly dependent on hOCR files and cannot compress images alone and generate PDF 1 without a text layer.
 
-### **6.4 最终建议与未来工作**
+### **6.4 Final recommendations and future work**
 
-最终建议：  
-本报告详细设计的自动化工具蓝图是可行且强大的。建议在实际开发中，优先实现核心的DAR流程和分层迭代算法。在功能稳定后，再逐步加入拆分协议和更复杂的错误处理逻辑。对于最终用户，应明确告知该工具的处理耗时和适用范围。  
-**未来工作与潜在增强**：
+Final recommendations:
+The automation tool blueprint detailed in this report is feasible and powerful. It is recommended that in actual development, priority should be given to implementing the core DAR process and hierarchical iterative algorithm. After the function is stable, split protocols and more complex error handling logic will be gradually added. For end users, the processing time and scope of application of the tool should be clearly communicated.
+**Future work and potential enhancements**:
 
-* **并行处理**：对于目录输入模式，可以利用Python的multiprocessing库实现并行处理，同时对多个文件执行DAR流程，从而大幅缩短批量任务的总耗时。  
-* **智能内容分析**：在解构阶段后，可以加入一个简单的图像分析步骤，判断页面是文本主导、图像主导还是混合内容，并据此动态调整bg-downsample和斜率等参数，实现更精细化的压缩。  
-* **集成高级参数**：将fg\_slope和bg\_slope等高级参数纳入自动迭代优化循环中，创建更多维度的参数搜索空间，以应对更极端的压缩挑战。  
-* **图形用户界面（GUI）**：为非技术用户开发一个简单的图形界面，封装命令行工具的复杂性，使其更易于使用。
+* **Parallel processing**: For directory input mode, you can use Python's multiprocessing library to implement parallel processing and execute the DAR process on multiple files at the same time, thus greatly reducing the total time-consuming of batch tasks.
+* **Intelligent content analysis**: After the deconstruction stage, a simple image analysis step can be added to determine whether the page is text-dominated, image-dominated, or mixed content, and dynamically adjust parameters such as bg-downsample and slope accordingly to achieve more refined compression.
+* **Integrated advanced parameters**: Incorporate advanced parameters such as fg\_slope and bg\_slope into the automatic iterative optimization loop to create a more dimensional parameter search space to cope with more extreme compression challenges.
+* **Graphical User Interface (GUI)**: Develop a simple graphical interface for non-technical users that encapsulates the complexity of command line tools and makes them easier to use.
 
 #### **引用的著作**
 
-1. archive-pdf-tools · PyPI, 访问时间为 十月 8, 2025， [https://pypi.org/project/archive-pdf-tools/](https://pypi.org/project/archive-pdf-tools/)  
-2. How to reduce the size of a OCRed pdf file using Tesseract OCR APIs. \- Google Groups, 访问时间为 十月 8, 2025， [https://groups.google.com/g/tesseract-ocr/c/ennBMpr9b50](https://groups.google.com/g/tesseract-ocr/c/ennBMpr9b50)  
-3. Reducing PDF size by splitting the image and compressing each area differently · Issue \#912 \- GitHub, 访问时间为 十月 8, 2025， [https://github.com/ocrmypdf/OCRmyPDF/issues/912](https://github.com/ocrmypdf/OCRmyPDF/issues/912)  
-4. Investigating OCR and Text PDFs from Digital Collections \- Bibliographic Wilderness, 访问时间为 十月 8, 2025， [https://bibwild.wordpress.com/2023/07/18/investigating-ocr-and-text-pdfs-from-digital-collections/](https://bibwild.wordpress.com/2023/07/18/investigating-ocr-and-text-pdfs-from-digital-collections/)  
-5. Re: How to reduce the size of PDF \- Adobe Product Community, 访问时间为 十月 8, 2025， [https://community.adobe.com/t5/acrobat-discussions/how-to-reduce-the-size-of-pdf/m-p/8620335](https://community.adobe.com/t5/acrobat-discussions/how-to-reduce-the-size-of-pdf/m-p/8620335)  
-6. pdfcomp: new tool, discussion, compression questions · Issue \#51 ..., 访问时间为 十月 8, 2025， [https://github.com/internetarchive/archive-pdf-tools/issues/51](https://github.com/internetarchive/archive-pdf-tools/issues/51)  
-7. split \- How can I extract a page range / a part of a PDF? \- Ask Ubuntu, 访问时间为 十月 8, 2025， [https://askubuntu.com/questions/221962/how-can-i-extract-a-page-range-a-part-of-a-pdf](https://askubuntu.com/questions/221962/how-can-i-extract-a-page-range-a-part-of-a-pdf)  
-8. qpdf or pdftk or gs???? \- Auto Multiple Choice, 访问时间为 十月 8, 2025， [https://project.auto-multiple-choice.net/boards/2/topics/7780](https://project.auto-multiple-choice.net/boards/2/topics/7780)  
-9. Split an input into multiple output files · Issue \#30 · qpdf/qpdf \- GitHub, 访问时间为 十月 8, 2025， [https://github.com/qpdf/qpdf/issues/30](https://github.com/qpdf/qpdf/issues/30)  
-10. Command line tools for digitisation \- The University of Melbourne, 访问时间为 十月 8, 2025， [https://blogs.unimelb.edu.au/digitisation-lab/command-line-tools-for-digitisation/](https://blogs.unimelb.edu.au/digitisation-lab/command-line-tools-for-digitisation/)
+1. archive-pdf-tools · PyPI, accessed October 8, 2025, [https://pypi.org/project/archive-pdf-tools/](https://pypi.org/project/archive-pdf-tools/)
+2. How to reduce the size of a OCRed pdf file using Tesseract OCR APIs. \- Google Groups, accessed October 8, 2025, [https://groups.google.com/g/tesseract-ocr/c/ennBMpr9b50](https://groups.google.com/g/tesseract-ocr/c/ennBMpr9b50)
+3. Reducing PDF size by splitting the image and compressing each area differently · Issue \#912 \- GitHub, accessed October 8, 2025, [https://github.com/ocrmypdf/OCRmyPDF/issues/912](https://github.com/ocrmypdf/OCRmyPDF/issues/912)
+4. Investigating OCR and Text PDFs from Digital Collections \- Bibliographic Wilderness, accessed October 8, 2025, [https://bibwild.wordpress.com/2023/07/18/investigating-ocr-and-text-pdfs-from-digital-collections/](https://bibwild.wordpress.com/2023/07/18/investigating-ocr-and-text-pdfs-from-digital-collections/)
+5. Re: How to reduce the size of PDF \- Adobe Product Community, accessed October 8, 2025, [https://community.adobe.com/t5/acrobat-discussions/how-to-reduce-the-size-of-pdf/m-p/8620335](https://community.adobe.com/t5/acrobat-discussions/how-to-reduce-the-size-of-pdf/m-p/8620335)
+6. pdfcomp: new tool, discussion, compression questions · Issue \#51 ..., accessed October 8, 2025, [https://github.com/internetarchive/archive-pdf-tools/issues/51](https://github.com/internetarchive/archive-pdf-tools/issues/51)
+7. split \- How can I extract a page range / a part of a PDF? \- Ask Ubuntu, accessed October 8, 2025, [https://askubuntu.com/questions/221962/how-can-i-extract-a-page-range-a-part-of-a-pdf](https://askubuntu.com/questions/221962/how-can-i-extract-a-page-range-a-part-of-a-pdf)
+8. qpdf or pdftk or gs???? \- Auto Multiple Choice, accessed October 8, 2025, [https://project.auto-multiple-choice.net/boards/2/topics/7780](https://project.auto-multiple-choice.net/boards/2/topics/7780)
+9. Split an input into multiple output files · Issue \#30 · qpdf/qpdf \- GitHub, accessed October 8, 2025, [https://github.com/qpdf/qpdf/issues/30](https://github.com/qpdf/qpdf/issues/30)
+10. Command line tools for digitisation \- The University of Melbourne, accessed October 8, 2025, [https://blogs.unimelb.edu.au/digitisation-lab/command-line-tools-for-digitisation/](https://blogs.unimelb.edu.au/digitisation-lab/command-line-tools-for-digitisation/)

@@ -1,35 +1,35 @@
 #!/bin/bash
-# 简化版测试脚本 - 快速验证no_words hOCR
+# Simplified version of the test script - quick verification no_words hOCR
 
-echo "=== hOCR优化 快速测试 ==="
+echo "=== hOCR Optimization Quick Test ==="
 echo ""
-echo "⚠️  使用前请确保："
-echo "1. 当前目录包含 page-*.tif 图像栈"
-echo "   (通常在压缩任务的临时目录中，如 /tmp/tmpXXXXXX)"
-echo "2. 在 WSL/Ubuntu 环境中运行"
-echo "3. 已安装 ocrmypdf-recode"
+echo "⚠️ Please make sure before use:"
+echo "1. The current directory contains page-*.tif image stack"
+echo " (usually in the temporary directory of the compression task, such as /tmp/tmpXXXXXX)"
+echo "2. Run in WSL/Ubuntu environment"
+echo "3. ocrmypdf-recode installed"
 echo ""
-echo "💡 提示：如果还没有图像栈，请查看 HOW_TO_GET_TEST_FILES.md"
+echo "💡 Tip: If there is no image stack yet, please check HOW_TO_GET_TEST_FILES.md"
 echo ""
 
-# 检查是否有图像文件
+# Check if there is an image file
 if ! ls page-*.tif 1> /dev/null 2>&1; then
-    echo "❌ 错误：当前目录没有 page-*.tif 文件"
+    echo "❌ Error: There is no page-*.tif file in the current directory"
     echo ""
-    echo "请先："
-    echo "1. 运行压缩任务: python main.py -i testpdf156.pdf -o output -t 2 --keep-temp-on-failure"
-    echo "2. 进入临时目录: cd /tmp/tmpXXXXXX"
-    echo "3. 再运行本脚本"
+    echo "Please first:"
+    echo "1. Run the compression task: python main.py -i testpdf156.pdf -o output -t 2 --keep-temp-on-failure"
+    echo "2. Enter the temporary directory: cd /tmp/tmpXXXXXX"
+    echo "3. Run this script again"
     echo ""
-    echo "详细说明请查看: test_hocr/HOW_TO_GET_TEST_FILES.md"
+    echo "For detailed instructions, please view: test_hocr/HOW_TO_GET_TEST_FILES.md"
     exit 1
 fi
 
 IMAGE_COUNT=$(ls page-*.tif 2>/dev/null | wc -l)
-echo "✅ 找到 $IMAGE_COUNT 个图像文件"
+echo "✅ $IMAGE_COUNT image files found"
 echo ""
 
-# 设置路径 - 自动检测多个可能的位置
+# Set path - automatically detects multiple possible locations
 POSSIBLE_PATHS=(
     "/mnt/c/Users/quying/Projects/pdf_compressor/docs/hocr_experiments/combined_no_words.hocr"
     "$HOME/pdf_compressor/docs/hocr_experiments/combined_no_words.hocr"
@@ -49,20 +49,20 @@ done
 IMAGE_PATTERN="page-*.tif"
 OUTPUT_PDF="test_no_words.pdf"
 
-# 检查 hOCR 文件
+# Check hOCR file
 if [ -z "$HOCR_FILE" ] || [ ! -f "$HOCR_FILE" ]; then
-    echo "❌ 找不到优化后的 hOCR 文件"
+    echo "❌ The optimized hOCR file cannot be found"
     echo ""
-    echo "已尝试的路径："
+    echo "Tried path:"
     for path in "${POSSIBLE_PATHS[@]}"; do
         echo "  - $path"
     done
     echo ""
-    echo "解决方案："
-    echo "1. 将 combined_no_words.hocr 复制到当前目录："
+    echo "Solution:"
+    echo "1. Copy combined_no_words.hocr to the current directory:"
     echo "   cp ~/pdf_compressor/docs/hocr_experiments/combined_no_words.hocr ."
     echo ""
-    echo "2. 或手动指定 hOCR 文件路径运行 recode_pdf："
+    echo "2. Or manually specify the hOCR file path to run recode_pdf:"
     echo "   recode_pdf --from-imagestack page-*.tif \\"
     echo "       --hocr-file /path/to/combined_no_words.hocr \\"
     echo "       --dpi 72 --bg-downsample 10 -J grok \\"
@@ -70,14 +70,14 @@ if [ -z "$HOCR_FILE" ] || [ ! -f "$HOCR_FILE" ]; then
     exit 1
 fi
 
-echo "📄 hOCR文件：$(basename "$HOCR_FILE") ($(du -h "$HOCR_FILE" | cut -f1))"
-echo "🖼️  图像模式：$IMAGE_PATTERN"
-echo "📦 输出文件：$OUTPUT_PDF"
+echo "📄 hOCR file: $(basename "$HOCR_FILE") ($(du -h "$HOCR_FILE" | cut -f1))"
+echo "🖼️ Image mode: $IMAGE_PATTERN"
+echo "📦 Output file: $OUTPUT_PDF"
 echo ""
-echo "开始生成PDF..."
+echo "Start generating PDF..."
 echo ""
 
-# 执行关键命令
+# Execute key commands
 recode_pdf --from-imagestack $IMAGE_PATTERN \
     --hocr-file "$HOCR_FILE" \
     --dpi 72 \
@@ -85,19 +85,19 @@ recode_pdf --from-imagestack $IMAGE_PATTERN \
     -J grok \
     -o "$OUTPUT_PDF"
 
-# 检查结果
+# Check results
 if [ $? -eq 0 ] && [ -f "$OUTPUT_PDF" ]; then
     echo ""
-    echo "✅ 成功！PDF已生成"
-    echo "   大小：$(du -h "$OUTPUT_PDF" | cut -f1)"
-    echo "   位置：$OUTPUT_PDF"
+    echo "✅ Success! PDF has been generated"
+    echo "Size: $(du -h "$OUTPUT_PDF" | cut -f1)"
+    echo "Location: $OUTPUT_PDF"
     echo ""
-    echo "请测试："
-    echo "• 打开PDF，检查显示是否正常"
-    echo "• 尝试搜索文本（Ctrl+F）"
-    echo "• 尝试选择和复制文本"
+    echo "Please test:"
+    echo "• Open the PDF and check whether the display is normal"
+    echo "• Try searching text (Ctrl+F)"
+    echo "• Try selecting and copying text"
 else
     echo ""
-    echo "❌ 失败！请检查错误信息"
+    echo "❌ Failed! Please check the error message"
     exit 1
 fi

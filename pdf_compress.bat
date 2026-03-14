@@ -1,86 +1,86 @@
 @echo off
 REM pdf_compress.bat
-REM Windows用户的PDF压缩工具快捷脚本
+REM PDF compression tool shortcut script for Windows users
 
 setlocal enabledelayedexpansion
 
 echo.
 echo ╔══════════════════════════════════════════════════════════════╗
-echo ║                    PDF 压缩与拆分工具                         ║
-echo ║                     Windows WSL 接口                          ║
+echo ║ PDF compression and splitting tool ║
+echo ║ Windows WSL interface ║
 echo ╚══════════════════════════════════════════════════════════════╝
 echo.
 
-REM 检查WSL是否可用
+REM Check if WSL is available
 wsl --status >nul 2>&1
 if errorlevel 1 (
-    echo 错误: WSL未安装或未正确配置
-    echo 请先安装WSL和Ubuntu，参考文档: docs\WINDOWS_GUIDE.md
+    echo error: WSL is not installed or configured correctly
+    echo Please install WSL and Ubuntu first, refer to the document: docs\WINDOWS_GUIDE.md
     pause
     exit /b 1
 )
 
-REM 检查项目是否在WSL中存在
+REM Check if the project exists in WSL
 wsl -e test -d ~/pdf_compressor
 if errorlevel 1 (
-    echo 正在复制项目到WSL文件系统...
+    echo Copying project to WSL file system...
     wsl -e cp -r /mnt/c/Users/%USERNAME%/Projects/pdf_compressor ~/pdf_compressor
-    echo 项目已复制到WSL
+    echo project copied to WSL
 )
 
-REM 检查依赖工具
-echo 检查依赖工具...
+REM dependency checking tool
+echo check dependency tool...
 wsl -e bash -c "cd ~/pdf_compressor && python3 main.py --check-deps" >nul 2>&1
 if errorlevel 1 (
     echo.
-    echo 依赖工具未安装，正在安装...
-    echo 这可能需要几分钟时间，请耐心等待...
+    The echo dependent tools are not installed and are being installed...
+    echo This may take a few minutes, please be patient...
     wsl -e bash -c "cd ~/pdf_compressor && chmod +x install_dependencies.sh && ./install_dependencies.sh"
     
-    REM 再次检查
+    REM Check again
     wsl -e bash -c "cd ~/pdf_compressor && python3 main.py --check-deps" >nul 2>&1
     if errorlevel 1 (
-        echo 安装失败，请手动在WSL中运行安装脚本
+        echo installation failed, please manually run the installation script in WSL
         pause
         exit /b 1
     )
 )
 
-echo 工具已就绪！
+The echo tool is ready!
 
-REM 如果没有参数，显示帮助
+REM If there are no parameters, display help
 if "%~1"=="" (
     echo.
-    echo 用法: pdf_compress.bat [PDF文件路径] [选项]
+    echo usage: pdf_compress.bat [PDF file path] [options]
     echo.
-    echo 示例:
+    echo example:
     echo   pdf_compress.bat C:\Documents\test.pdf
     echo   pdf_compress.bat C:\Documents\test.pdf --allow-splitting
     echo   pdf_compress.bat C:\Documents\PDFs --target-size 8.0 --allow-splitting
     echo.
-    echo 可用选项:
-    echo   --allow-splitting      允许拆分文件
-    echo   --target-size SIZE     目标大小(MB)
-    echo   --max-splits NUM       最大拆分数量
-    echo   --verbose              详细输出
+    Available options for echo:
+    echo --allow-splitting allows splitting files
+    echo --target-size SIZE target size (MB)
+    echo --max-splits NUM maximum number of splits
+    echo --verbose detailed output
     echo.
     pause
     exit /b 0
 )
 
-REM 转换第一个参数为WSL路径
+REM converts the first parameter to a WSL path
 set "input_path=%~1"
 set "input_path=!input_path:\=/!"
 set "input_path=!input_path::=!"
 set "wsl_input=/mnt/!input_path!"
 
-REM 设置输出目录
+REM sets the output directory
 set "output_dir=~/pdf_output"
 
-REM 构建命令
+REM build command
 set "cmd=cd ~/pdf_compressor && python3 main.py --input '!wsl_input!' --output-dir !output_dir!"
 
-REM 添加其他参数
+REM adds additional parameters
 shift
 :parse_args
 if "%~1"=="" goto run_command
@@ -89,48 +89,48 @@ shift
 goto parse_args
 
 :run_command
-REM 添加默认的拆分选项（如果用户没有指定）
+REM adds default splitting options if not specified by the user
 echo !cmd! | findstr /C:"--allow-splitting" >nul
 if errorlevel 1 (
     set "cmd=!cmd! --allow-splitting"
 )
 
 echo.
-echo 正在处理PDF文件...
-echo 输入: %~1
-echo 输出: 将保存在WSL的 ~/pdf_output 目录
+echo is processing PDF files...
+echo input: %~1
+echo output: will be saved in WSL's ~/pdf_output directory
 echo.
 
-REM 执行命令
+REM execution command
 wsl -e bash -c "!cmd!"
 
 if errorlevel 1 (
     echo.
-    echo 处理失败，请查看错误信息
+    echo processing failed, please check the error message
     pause
     exit /b 1
 )
 
 echo.
-echo 处理完成！
+echo processing completed!
 echo.
 
-REM 询问是否要复制输出文件到Windows
-set /p copy_choice="是否要将输出文件复制到Windows？(y/n): "
+REM asks if you want to copy the output file to Windows
+set /p copy_choice="Do you want to copy the output file to Windows? (y/n): "
 if /i "%copy_choice%"=="y" (
-    set "win_output=%USERPROFILE%\Documents\PDF压缩输出"
-    echo 正在复制到: !win_output!
+    set "win_output=%USERPROFILE%\Documents\PDF Compressed Output"
+    echo is copying to: !win_output!
     
-    REM 创建Windows输出目录
+    REM creates Windows output directory
     if not exist "!win_output!" mkdir "!win_output!"
     
-    REM 复制文件
-    wsl -e bash -c "cp ~/pdf_output/* /mnt/c/Users/%USERNAME%/Documents/PDF压缩输出/ 2>/dev/null || true"
+    REM copy files
+    wsl -e bash -c "cp ~/pdf_output/* /mnt/c/Users/%USERNAME%/Documents/PDF Compressed Output/ 2>/dev/null || true"
     
-    echo 文件已复制到: !win_output!
+    echo file copied to: !win_output!
     explorer "!win_output!"
 )
 
 echo.
-echo 按任意键退出...
+echo Press any key to exit...
 pause >nul

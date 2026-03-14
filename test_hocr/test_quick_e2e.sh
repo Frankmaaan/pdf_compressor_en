@@ -1,39 +1,39 @@
 #!/bin/bash
-# 快速 hOCR 优化测试 - 直接使用 PDF 文件
+# Fast hOCR optimization test - directly use PDF files
 
 PDF_FILE="${1:-}"
 
 if [ -z "$PDF_FILE" ] || [ ! -f "$PDF_FILE" ]; then
-    echo "用法: $0 <PDF文件>"
+    echo "Usage: $0 <PDF file>"
     echo ""
-    echo "示例: bash test_quick_e2e.sh test.pdf"
+    echo "Example: bash test_quick_e2e.sh test.pdf"
     exit 1
 fi
 
-# 转换为绝对路径
+# Convert to absolute path
 PDF_FILE=$(realpath "$PDF_FILE")
 
-echo "🎯 快速 hOCR 优化测试"
+echo "🎯 Quick hOCR optimization test"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo "PDF: $PDF_FILE"
-echo "大小: $(du -h "$PDF_FILE" | cut -f1)"
+echo "size: $(du -h "$PDF_FILE" | cut -f1)"
 echo ""
 
-# 创建临时目录
+#Create temporary directory
 TEMP_DIR="/tmp/hocr_quick_test_$$"
 mkdir -p "$TEMP_DIR"
 cd "$TEMP_DIR"
 
-echo "[1/4] 解构 PDF..."
+echo "[1/4] Deconstruct PDF..."
 pdftoppm -tiff -tiffcompression lzw -r 300 "$PDF_FILE" page 2>&1 | head -5
-echo "      ✅ $(ls page-*.tif | wc -l) 页"
+echo "✅ $(ls page-*.tif | wc -l) page"
 
-echo "[2/4] OCR 识别..."
+echo "[2/4] OCR recognition..."
 for img in page-*.tif; do
-    tesseract "$img" "$(basename "$img" .tif)" -l chi_sim hocr 2>/dev/null
+    tesseract "$img" "$(basename "$img" .tif)" -l eng hocr 2>/dev/null
 done
 
-# 简单合并 hOCR（只取第一个文件的框架，插入所有页面）
+# Simple merge hOCR (only take the frame of the first file and insert all pages)
 python3 -c "
 import glob, re
 files = sorted(glob.glob('page-*.hocr'))
@@ -53,7 +53,7 @@ with open('combined.hocr', 'w', encoding='utf-8') as out:
 "
 echo "      ✅ hOCR: $(du -h combined.hocr | cut -f1)"
 
-echo "[3/4] 优化 hOCR (删除 ocrx_word)..."
+echo "[3/4] Optimize hOCR (delete ocrx_word)..."
 python3 -c "
 import re
 with open('combined.hocr', 'r', encoding='utf-8') as f:
@@ -65,14 +65,14 @@ reduction = (1 - len(optimized)/len(content)) * 100
 print(f'      ✅ 优化: {len(content)/1024/1024:.1f}MB → {len(optimized)/1024/1024:.1f}MB (-{reduction:.1f}%)')
 "
 
-echo "[4/4] 生成 PDF..."
-echo "      原始 hOCR..."
+echo "[4/4] Generate PDF..."
+echo "Original hOCR..."
 recode_pdf --from-imagestack page-*.tif \
     --hocr-file combined.hocr \
     --dpi 300 --bg-downsample 2 -J grok \
     -o test_original.pdf 2>&1 | grep -v "^$"
 
-echo "      优化 hOCR..."
+echo "Optimize hOCR..."
 recode_pdf --from-imagestack page-*.tif \
     --hocr-file combined_no_words.hocr \
     --dpi 300 --bg-downsample 2 -J grok \
@@ -80,11 +80,11 @@ recode_pdf --from-imagestack page-*.tif \
 
 echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo "📊 结果"
+echo "📊 results"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 ls -lh test_*.pdf combined*.hocr | awk '{printf "%-25s %5s\n", $9, $5}'
 echo ""
-echo "📁 位置: $TEMP_DIR"
+echo "📁 Location: $TEMP_DIR"
 echo ""
 
 if [ -f "test_original.pdf" ] && [ -f "test_no_words.pdf" ]; then
@@ -95,8 +95,8 @@ if [ -f "test_original.pdf" ] && [ -f "test_no_words.pdf" ]; then
     if [ $DIFF -gt 0 ]; then
         DIFF_MB=$(echo "scale=2; $DIFF / 1024 / 1024" | bc)
         PCT=$(echo "scale=1; $DIFF * 100 / $ORIG_SIZE" | bc)
-        echo "✅ 成功! 节省 ${DIFF_MB}MB (${PCT}%)"
+        echo "✅ Success! Save ${DIFF_MB}MB (${PCT}%)"
     else
-        echo "⚠️  优化后大小未减小"
+        echo "⚠️ The size has not been reduced after optimization"
     fi
 fi

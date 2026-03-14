@@ -1,180 +1,180 @@
-# hOCR 文件优化研究方向
+# hOCR file optimization research direction
 
-## 重要发现
-**日期**: 2025-10-19  
-**测试文件**: 156页 PDF (136MB)  
-**hOCR 文件大小**: 9.04 MB
+## Important findings
+**Date**: 2025-10-19
+**Test File**: 156 pages PDF (136MB)
+**hOCR file size**: 9.04 MB
 
-### 关键观察
-在测试 156 页 PDF 压缩时发现，生成的 hOCR 文件大小达到 **9.04 MB**，这对于极限压缩场景（目标 2MB）来说，占比非常显著。
+### Key Observations
+When testing 156-page PDF compression, it was found that the resulting hOCR file size reached **9.04 MB**, which is very significant for an extreme compression scenario (target 2MB).
 
-**影响分析**:
-- hOCR 文件会被嵌入到最终的 PDF 中
-- 9.04MB 的 hOCR 相当于目标大小的 4.5 倍
-- 在 S7 终极方案中，hOCR 可能成为瓶颈因素
+**Impact Analysis**:
+- hOCR files will be embedded in the final PDF
+- hOCR of 9.04MB is equivalent to 4.5 times the target size
+- hOCR may become a bottleneck in S7 Ultimate
 
 ---
 
-## 研究方向
+## Research direction
 
-### 1. **空 hOCR 技术** (高优先级)
+### 1. **Empty hOCR Technology** (High Priority)
 
-#### 概念
-保留 hOCR 文件的结构，但删除所有 OCR 识别的文字内容。
+#### Concept
+Preserves the structure of the hOCR file, but removes all OCR-recognized text content.
 
-#### 预期效果
-根据研究文献，空 hOCR 可以显著降低极限压缩条件下的文件大小。
+#### Expected results
+According to research literature, empty hOCR can significantly reduce file size under extreme compression conditions.
 
-#### 实现方案
+#### Implementation plan
 ```python
 def create_empty_hocr(input_hocr_file, output_hocr_file):
     """
-    创建空 hOCR 文件（保留结构，删除文字内容）
+    Create empty hOCR file (keep structure, remove text content)
     
-    保留:
-    - XML 结构
-    - 页面信息 (ocr_page)
-    - 区域信息 (ocr_carea)
-    - 行信息 (ocr_line)
-    - 单词边界框 (ocrx_word)
+    Reserved:
+    - XML structure
+    - Page information (ocr_page)
+    - Area information (ocr_carea)
+    - Line information (ocr_line)
+    - Word bounding box (ocrx_word)
     
-    删除:
-    - 所有文字内容 (title 属性中的 bbox 保留)
+    Delete:
+    - All text content (the bbox in the title attribute is reserved)
     """
     import xml.etree.ElementTree as ET
     
     tree = ET.parse(input_hocr_file)
     root = tree.getroot()
     
-    # 遍历所有包含文字的元素
+    # Traverse all elements containing text
     for elem in root.iter():
         if elem.text:
-            elem.text = ''  # 清空文字内容
+            elem.text = '' # Clear text content
         if elem.tail:
-            elem.tail = ''  # 清空尾部文字
+            elem.tail = '' # Clear the tail text
     
     tree.write(output_hocr_file, encoding='utf-8', xml_declaration=True)
     
     return output_hocr_file
 ```
 
-#### 测试计划
-1. 生成原始 hOCR (9.04MB)
-2. 创建空 hOCR 版本
-3. 分别使用两种 hOCR 运行 S7 方案
-4. 对比最终 PDF 大小和可读性
+#### Test plan
+1. Generate raw hOCR (9.04MB)
+2. Create an empty hOCR version
+3. Run the S7 solution using two hOCRs respectively
+4. Compare final PDF size and readability
 
 ---
 
-### 2. **可变 DPI hOCR** (中优先级)
+### 2. **Variable DPI hOCR** ​​(medium priority)
 
-#### 当前问题
-所有压缩方案（S1-S7）都使用 300 DPI 生成的 hOCR 文件。
+#### Current Issues
+All compression schemes (S1-S7) use hOCR files generated at 300 DPI.
 
-#### 研究问题
-- S7 使用 DPI=72 重建，但 hOCR 是 300 DPI 生成的
-- 这种不匹配是否会影响最终文件大小？
-- 影响方向：正向（更小）还是反向（更大）？
+#### Research questions
+- S7 rebuilt with DPI=72, but hOCR was generated at 300 DPI
+- Will this mismatch affect the final file size?
+- Direction of influence: forward (smaller) or reverse (larger)?
 
-#### 实现方案
+#### Implementation plan
 ```python
 def _precompute_dar_steps_variable_dpi(input_pdf_path, temp_dir, target_scheme):
     """
-    根据目标方案的 DPI 生成对应的 hOCR
+    Generate the corresponding hOCR according to the DPI of the target solution
     """
     scheme = COMPRESSION_SCHEMES[target_scheme]
     target_dpi = scheme['dpi']
     
-    # 使用目标方案的 DPI 进行解构
+    # Deconstruct using the DPI of the target scheme
     image_files = pipeline.deconstruct_pdf_to_images(
         input_pdf_path, temp_dir, dpi=target_dpi
     )
     
-    # 生成对应 DPI 的 hOCR
+    # Generate hOCR corresponding to DPI
     hocr_file = pipeline.analyze_images_to_hocr(image_files, temp_dir)
     
     return {'image_files': image_files, 'hocr_file': hocr_file}
 ```
 
-#### 测试计划
-1. S1 使用 300 DPI hOCR
-2. S7 使用 72 DPI hOCR
-3. 对比相同方案使用不同 DPI hOCR 的效果
+#### Test plan
+1. S1 uses 300 DPI hOCR
+2. S7 uses 72 DPI hOCR
+3. Compare the effects of using different DPI hOCR with the same solution
 
 ---
 
-### 3. **hOCR 压缩技术** (低优先级)
+### 3. **hOCR compression technology** (low priority)
 
-#### 方向
-- 使用 gzip 压缩 hOCR 文件
-- 简化 hOCR XML 结构
-- 移除冗余属性
+#### Direction
+- Use gzip to compress hOCR files
+- Simplified hOCR XML structure
+- Remove redundant attributes
 
-#### 测试优先级
-低（先验证上述两个方向的效果）
+#### Test priority
+Low (verify the effects of the above two directions first)
 
 ---
 
-## 实验设计
+## Experimental design
 
-### 实验 1: 空 hOCR vs 原始 hOCR
+### Experiment 1: Empty hOCR vs original hOCR
 
-**测试文件**: testpdf156.pdf (156页, 136MB)
+**Test file**: testpdf156.pdf (156 pages, 136MB)
 
-| 方案 | hOCR 类型 | hOCR 大小 | 最终 PDF 大小 | 可读性 |
+| Scheme | hOCR Type | hOCR Size | Final PDF Size | Readability |
 |------|-----------|-----------|---------------|--------|
-| S7   | 原始 (9.04MB) | 9.04MB | ? | ? |
-| S7   | 空 hOCR | ? | ? | ? |
+| S7 | Original (9.04MB) | 9.04MB | ? | ? |
+| S7 | Empty hOCR | ? | ? | ? |
 
-### 实验 2: 不同 DPI hOCR 对比
+### Experiment 2: Different DPI hOCR comparison
 
-| 方案 | DPI | hOCR DPI | hOCR 大小 | 最终 PDF 大小 |
+| Scheme | DPI | hOCR DPI | hOCR Size | Final PDF Size |
 |------|-----|----------|-----------|---------------|
 | S7   | 72  | 300      | 9.04MB    | ?             |
 | S7   | 72  | 72       | ?         | ?             |
 
 ---
 
-## 预期收益
+## Expected revenue
 
-### 乐观估计
-如果空 hOCR 能减少 50% 的文件大小：
-- 原 hOCR: 9.04MB
-- 空 hOCR: ~4.5MB
-- **节省**: 4.5MB
+### Optimistic estimate
+If empty hOCR reduces file size by 50%:
+- Original hOCR: 9.04MB
+- Empty hOCR: ~4.5MB
+- **Save**: 4.5MB
 
-对于目标 2MB 的压缩任务，这是巨大的改进！
+For compression tasks targeting 2MB, this is a huge improvement!
 
-### 保守估计
-即使只减少 30%：
-- **节省**: 2.7MB
+### Conservative estimate
+Even if it’s only a 30% reduction:
+- **Save**: 2.7MB
 
-仍然非常可观。
-
----
-
-## 实施建议
-
-### 阶段 1: 验证空 hOCR 效果 (1-2天)
-1. 实现 `create_empty_hocr()` 函数
-2. 在 testpdf156.pdf 上测试
-3. 评估效果和可读性
-
-### 阶段 2: 可变 DPI 研究 (2-3天)
-1. 实现 `_precompute_dar_steps_variable_dpi()` 
-2. 对比不同 DPI hOCR 的效果
-3. 确定最优策略
-
-### 阶段 3: 整合到生产 (1天)
-1. 为 S7 方案启用空 hOCR
-2. 添加命令行参数 `--empty-hocr`
-3. 更新文档
+Still very impressive.
 
 ---
 
-## 技术细节
+## Implementation suggestions
 
-### hOCR 文件结构示例
+### Phase 1: Verify empty hOCR effect (1-2 days)
+1. Implement the `create_empty_hocr()` function
+2. Test on testpdf156.pdf
+3. Evaluate effectiveness and readability
+
+### Phase 2: Variable DPI Study (2-3 days)
+1. Implement `_precompute_dar_steps_variable_dpi()`
+2. Compare the effects of hOCR with different DPIs
+3. Determine the optimal strategy
+
+### Phase 3: Integration into production (1 day)
+1. Enable empty hOCR for S7 scenario
+2. Add the command line parameter `--empty-hocr`
+3. Update documentation
+
+---
+
+## Technical details
+
+### hOCR file structure example
 ```xml
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" 
@@ -191,7 +191,7 @@ def _precompute_dar_steps_variable_dpi(input_pdf_path, temp_dir, target_scheme):
       <p class='ocr_par' id='par_1_1' title="bbox 100 200 2450 250">
         <span class='ocr_line' id='line_1_1' title="bbox 100 200 2450 250">
           <span class='ocrx_word' id='word_1_1' title='bbox 100 200 300 250'>
-            这里是识别的文字  <!-- 这部分会被删除 -->
+            Here is the recognized text <!-- This part will be deleted -->
           </span>
         </span>
       </p>
@@ -201,56 +201,56 @@ def _precompute_dar_steps_variable_dpi(input_pdf_path, temp_dir, target_scheme):
 </html>
 ```
 
-### 空 hOCR 示例
+### Empty hOCR example
 ```xml
-<!-- 保留所有 bbox 信息，删除文字内容 -->
+<!-- Keep all bbox information and delete text content -->
 <span class='ocrx_word' id='word_1_1' title='bbox 100 200 300 250'></span>
 ```
 
 ---
 
-## 相关研究
+## Related research
 
-### 文献参考
+### Literature Reference
 1. "Efficient PDF Compression Using Mixed Raster Content"
 2. "hOCR: An Open Standard for Representing OCR Results"
-3. Archive PDF Tools 文档关于 hOCR 处理的说明
+3. Archive PDF Tools document’s instructions on hOCR processing
 
-### 社区经验
-- 有用户报告空 hOCR 可减少 40-60% 文件大小
-- 适用于不需要文字搜索功能的场景
-- 对视觉质量无影响
-
----
-
-## 风险评估
-
-### 空 hOCR 风险
-- ❌ 丧失文字搜索能力
-- ❌ 丧失文字复制功能
-- ✅ 保留视觉效果
-- ✅ 保留页面布局
-
-### 适用场景
-- 纯归档用途（不需要搜索）
-- 极限压缩场景（< 2MB）
-- 图片型 PDF（OCR 准确率低）
+### Community Experience
+- Some users reported that empty hOCR can reduce file size by 40-60%
+- Suitable for scenarios where text search function is not required
+- No impact on visual quality
 
 ---
 
-## 下一步行动
+## risk assessment
 
-**明天继续时**:
-1. [ ] 实现 `create_empty_hocr()` 函数
-2. [ ] 在 testpdf156.pdf 上测试空 hOCR 效果
-3. [ ] 记录详细的测试数据
-4. [ ] 评估是否值得整合到主流程
+### Empty hOCR risk
+- ❌ Loss of text search ability
+- ❌ Loss of text copy function
+- ✅ Preserve visual effects
+- ✅ Preserve page layout
 
-**备注**: 当前 v2.0.2 已解决所有紧急问题，可以从容进行 hOCR 优化研究。
+### Applicable scenarios
+- Pure archiving use (no searching required)
+- Extreme compression scenarios (< 2MB)
+- Image PDF (OCR accuracy is low)
 
 ---
 
-**创建日期**: 2025-10-19  
-**状态**: 待研究  
-**优先级**: 高  
-**预计工作量**: 4-6 天
+## Next action
+
+**When continuing tomorrow**:
+1. [ ] Implement the `create_empty_hocr()` function
+2. [ ] Test the empty hOCR effect on testpdf156.pdf
+3. [ ] Record detailed test data
+4. [ ] Evaluate whether it is worth integrating into the main process
+
+**Remarks**: The current v2.0.2 has solved all urgent issues, and hOCR optimization research can be carried out calmly.
+
+---
+
+**Creation date**: 2025-10-19
+**Status**: Awaiting research
+**Priority**: High
+**Estimated workload**: 4-6 days

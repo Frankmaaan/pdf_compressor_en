@@ -1,251 +1,251 @@
-# hOCR 文件结构深度分析
+# hOCR file structure in-depth analysis
 
-## 📚 hOCR 简介
+## 📚 hOCR Introduction
 
-**hOCR** (HTML-based OCR) 是一种开放标准，用于在 HTML/XHTML 中表示 OCR 结果。
+**hOCR** ​​(HTML-based OCR) is an open standard for representing OCR results in HTML/XHTML.
 
-### 核心用途
-1. **文本坐标定位**: 记录每个单词/字符在页面中的精确位置
-2. **文本内容存储**: 保存 OCR 识别的文字内容
-3. **PDF 可搜索性**: 嵌入 PDF 后实现文字搜索和复制功能
-4. **布局信息**: 保留页面、段落、行的层次结构
+### Core Purpose
+1. **Text coordinate positioning**: Record the precise position of each word/character on the page
+2. **Text content storage**: Save the text content recognized by OCR
+3. **PDF Searchability**: Embed PDF to enable text search and copy functions
+4. **Layout information**: Preserve the hierarchical structure of pages, paragraphs, and lines
 
 ---
 
-## 🏗️ hOCR 文件结构层次
+## 🏗️ hOCR file structure hierarchy
 
 ```
-HTML 文档
+HTML document
 └── <body>
-    └── <div class="ocr_page">          # 页面级别
-        └── <div class="ocr_carea">     # 内容区域
-            └── <p class="ocr_par">     # 段落
-                └── <span class="ocr_line">     # 文本行
-                    └── <span class="ocrx_word">    # 单词/词组
-                        文本内容
+    └── <div class="ocr_page"> # Page level
+    └── <div class="ocr_carea"> # Content area
+    └── <p class="ocr_par"> # Paragraph
+    └── <span class="ocr_line"> # Text line
+    └── <span class="ocrx_word"> # word/phrase
+    text content
 ```
 
 ---
 
-## 📋 标签详细分析
+## 📋 Tag detailed analysis
 
-### 1. `ocr_page` - 页面容器
+### 1. `ocr_page` - page container
 
-**功能**: 代表一个完整的页面
+**Function**: Represents a complete page
 
-**关键属性**:
+**Key Attributes**:
 ```html
 <div class='ocr_page' id='page_1' title='bbox 0 0 2550 3300; ppageno 0'>
 ```
 
-- `bbox 0 0 2550 3300`: 页面边界框（左上角 x,y 到右下角 x,y）
-- `ppageno 0`: 物理页码（从0开始）
+- `bbox 0 0 2550 3300`: page bounding box (upper left corner x,y to lower right corner x,y)
+- `ppageno 0`: physical page number (starting from 0)
 
-**对文件大小的影响**: 
-- 少量（每页一个）
-- 包含页面尺寸信息，必须保留
+**Impact on file size**:
+- A small amount (one per page)
+- Contains page size information, which must be retained
 
-**能否删除**: ❌ 否 - 必须保留，用于页面定位
+**Can be deleted**: ❌ No - must be retained for page positioning
 
 ---
 
-### 2. `ocr_carea` - 内容区域
+### 2. `ocr_carea` - content area
 
-**功能**: 表示页面中的一个内容区域（如文本块、图片区域）
+**Function**: Represents a content area in the page (such as text block, picture area)
 
-**关键属性**:
+**Key Attributes**:
 ```html
 <div class='ocr_carea' id='block_1_1' title="bbox 100 200 2450 3100">
 ```
 
-- `bbox`: 区域边界框
-- `id`: 唯一标识符
+- `bbox`: area bounding box
+- `id`: unique identifier
 
-**对文件大小的影响**: 
-- 中等（每页可能有多个区域）
-- 提供粗粒度布局信息
+**Impact on file size**:
+- Medium (may have multiple areas per page)
+- Provide coarse-grained layout information
 
-**能否删除**: ⚠️ 可能 - 需要测试 recode_pdf 是否依赖
+**Can it be deleted**: ⚠️ Possible - need to test whether recode_pdf is dependent on it
 
 ---
 
-### 3. `ocr_par` - 段落
+### 3. `ocr_par` - Paragraph
 
-**功能**: 表示一个段落
+**Function**: Represents a paragraph
 
-**关键属性**:
+**Key Attributes**:
 ```html
 <p class='ocr_par' id='par_1_1' lang='zho' title="bbox 100 200 2450 500">
 ```
 
-- `lang`: 语言代码（zho=中文，eng=英文）
-- `bbox`: 段落边界框
+- `lang`: language code (zho=English, eng=English)
+- `bbox`: Paragraph bounding box
 
-**对文件大小的影响**: 
-- 中等（每个内容区域可能有多个段落）
-- 提供段落级布局
+**Impact on file size**:
+- Medium (may have multiple paragraphs per content area)
+- Provide paragraph level layout
 
-**能否删除**: ⚠️ 可能 - 需要测试
+**Can it be deleted**: ⚠️ Possible - needs to be tested
 
 ---
 
-### 4. `ocr_line` - 文本行 ⭐ 重要
+### 4. `ocr_line` - Text line ⭐ Important
 
-**功能**: 表示一行文本
+**Function**: Represents a line of text
 
-**关键属性**:
+**Key Attributes**:
 ```html
 <span class='ocr_line' id='line_1_1' 
       title="bbox 100 200 2450 250; baseline -0.002 -5; x_size 45; x_descenders 10; x_ascenders 10">
 ```
 
-- `bbox`: 行边界框
-- `baseline`: 基线偏移
-- `x_size`: 字体大小
-- `x_descenders`: 下伸部分
-- `x_ascenders`: 上伸部分
+- `bbox`: row bounding box
+- `baseline`: baseline offset
+- `x_size`: font size
+- `x_descenders`: Descenders
+- `x_ascenders`: ascending parts
 
-**对文件大小的影响**: 
-- 🔴 **高** - 数量多，属性详细
-- 包含大量字体度量信息
+**Impact on file size**:
+- 🔴 **High** - Large quantity, detailed attributes
+- Contains extensive font metric information
 
-**能否删除**: ⚠️ 可能 - 或简化属性（只保留 bbox）
+**Can it be deleted**: ⚠️ Possible - or simplify attributes (only keep bbox)
 
 ---
 
-### 5. `ocrx_word` - 单词/词组 ⭐⭐⭐ 最关键
+### 5. `ocrx_word` - word/phrase ⭐⭐⭐ the most critical
 
-**功能**: 表示一个单词或词组，包含实际文本内容
+**Function**: Represents a word or phrase, containing actual text content
 
-**关键属性**:
+**Key Attributes**:
 ```html
 <span class='ocrx_word' id='word_1_1' title='bbox 100 200 300 250; x_wconf 95'>
-    这是第一个
+    this is the first
 </span>
 ```
 
-- `bbox`: 单词边界框
-- `x_wconf`: 识别置信度（0-100）
-- **标签内文本**: OCR 识别的实际文字
+- `bbox`: word bounding box
+- `x_wconf`: recognition confidence (0-100)
+- **In-label text**: The actual text recognized by OCR
 
-**对文件大小的影响**: 
-- 🔴🔴🔴 **极高** - 数量最多，包含所有文本
-- 文本内容占据大量空间
-- 中文字符尤其占空间（UTF-8 每字符 3 字节）
+**Impact on file size**:
+- 🔴🔴🔴 **Extremely High** - Highest number, including all texts
+- Text content takes up a lot of space
+- English characters especially take up space (UTF-8 3 bytes per character)
 
-**能否删除**: 
-- 标签本身: ⚠️ 可能需要保留（recode_pdf 可能需要定位信息）
-- 文本内容: ✅ **可以删除！**（这是优化的关键）
+**Can it be deleted**:
+- The tag itself: ⚠️ may need to be retained (recode_pdf may need positioning information)
+- Text content: ✅ **Can be deleted! **(This is the key to optimization)
 
 ---
 
-## 🎯 优化策略分析
+## 🎯 Optimization strategy analysis
 
-### 策略 1: 删除文本内容（空 hOCR）⭐⭐⭐
+### Strategy 1: Remove text content (empty hOCR) ⭐⭐⭐
 
-**操作**: 保留所有标签和 bbox，只删除 `ocrx_word` 标签内的文本
+**Action**: Keep all tags and bboxes, delete only the text within the `ocrx_word` tag
 
 ```html
-<!-- 原始 -->
-<span class='ocrx_word' id='word_1_1' title='bbox 100 200 300 250'>这是文本</span>
+<!-- Original -->
+<span class='ocrx_word' id='word_1_1' title='bbox 100 200 300 250'>This is text</span>
 
-<!-- 优化后 -->
+<!-- After optimization -->
 <span class='ocrx_word' id='word_1_1' title='bbox 100 200 300 250'></span>
 ```
 
-**预期效果**:
-- 文本占比约 30-50%（中文更高）
-- **预计减少**: 30-50% 文件大小
-- **风险**: 丧失搜索功能（但我们不需要）
+**Expected results**:
+- Text accounts for about 30-50% (higher for English)
+- **Estimated reduction**: 30-50% file size
+- **RISK**: Loss of search functionality (but we don’t need it)
 
-**实现难度**: ⭐ 简单（正则替换）
+**Difficulty of implementation**: ⭐ Simple (regular replacement)
 
 ---
 
-### 策略 2: 简化属性（最小 hOCR）⭐⭐
+### Strategy 2: Simplified attributes (minimal hOCR) ⭐⭐
 
-**操作**: 删除非必要属性，只保留 bbox
+**Operation**: Delete non-essential attributes and keep only bbox
 
 ```html
-<!-- 原始 -->
+<!-- Original -->
 <span class='ocr_line' id='line_1_1' 
       title="bbox 100 200 2450 250; baseline -0.002 -5; x_size 45; x_descenders 10; x_ascenders 10">
 
-<!-- 优化后 -->
+<!-- After optimization -->
 <span class='ocr_line' id='line_1_1' title="bbox 100 200 2450 250">
 ```
 
-**预期效果**:
-- **预计减少**: 10-15% 额外空间
-- **风险**: recode_pdf 可能需要某些属性
+**Expected results**:
+- **Estimated reduction**: 10-15% additional space
+- **RISK**: recode_pdf may require certain attributes
 
-**实现难度**: ⭐⭐ 中等（需要测试兼容性）
+**Difficulty of implementation**: ⭐⭐ Medium (needs to test compatibility)
 
 ---
 
-### 策略 3: 删除整个 ocrx_word 标签 ⭐
+### Strategy 3: Remove the entire ocrx_word tag ⭐
 
-**操作**: 完全移除 `<span class="ocrx_word">` 标签
+**Action**: Completely remove the `<span class="ocrx_word">` tag
 
 ```html
-<!-- 原始 -->
+<!-- Original -->
 <span class='ocr_line' id='line_1_1' title="...">
   <span class='ocrx_word' id='word_1_1' title='...'>文本1</span>
   <span class='ocrx_word' id='word_1_2' title='...'>文本2</span>
 </span>
 
-<!-- 优化后 -->
+<!-- After optimization -->
 <span class='ocr_line' id='line_1_1' title="...">
 </span>
 ```
 
-**预期效果**:
-- **预计减少**: 50-70% 文件大小
-- **风险**: ⚠️ 高 - recode_pdf 可能依赖单词级定位
+**Expected results**:
+- **Estimated reduction**: 50-70% file size
+- **Risk**: ⚠️ High - recode_pdf may rely on word-level targeting
 
-**实现难度**: ⭐ 简单
-
----
-
-### 策略 4: 删除 ocr_line 标签 ⭐
-
-**操作**: 移除文本行级别的结构
-
-**预期效果**:
-- **预计减少**: 60-80% 文件大小
-- **风险**: 🔴 很高 - 可能导致 recode_pdf 失败
-
-**实现难度**: ⭐ 简单
+**Difficulty of Implementation**: ⭐ Simple
 
 ---
 
-## 🔬 实验计划
+### Strategy 4: Remove ocr_line tag ⭐
 
-### 第 1 阶段: 文件大小分析（无需重建 PDF）
+**Action**: Remove text line level structure
 
-1. ✅ **分析原始 hOCR**
-   - 测量总大小
-   - 统计各级元素数量
-   - 计算文本内容占比
+**Expected results**:
+- **Estimated reduction**: 60-80% file size
+- **Risk**: 🔴 Very high - may cause recode_pdf to fail
 
-2. ✅ **创建优化版本**
-   - 空文本版（删除 ocrx_word 文本）
-   - 最小版（简化属性）
-   - 无单词版（删除 ocrx_word 标签）
-   - 无文本行版（删除 ocr_line 标签）
+**Difficulty of Implementation**: ⭐ Simple
 
-3. ✅ **对比大小**
-   - 记录每个版本的文件大小
-   - 计算减少百分比
+---
 
-### 第 2 阶段: PDF 重建测试
+## 🔬 Experimental Plan
 
-使用真实 PDF 测试每个优化版本：
+### Stage 1: File size analysis (no need to rebuild PDF)
+
+1. ✅ **Analyze raw hOCR**
+- Measure total size
+- Count the number of elements at each level
+- Calculate the proportion of text content
+
+2. ✅ **Create optimized version**
+- Empty text version (remove ocrx_word text)
+- Minimal version (simplified attributes)
+- Wordless version (remove ocrx_word tag)
+- No text line version (remove ocr_line tag)
+
+3. ✅ **Compare size**
+- Record the file size of each version
+- Calculate reduction percentage
+
+### Phase 2: PDF Reconstruction Test
+
+Test each optimized version with a real PDF:
 
 ```bash
-# 测试命令
+# Test command
 recode_pdf --from-imagestack /tmp/page-*.tif \
-           --hocr-file <优化后的hocr文件> \
+           --hocr-file <optimized hocr file> \
            --dpi 72 \
            --bg-downsample 10 \
            --mask-compression jbig2 \
@@ -253,109 +253,109 @@ recode_pdf --from-imagestack /tmp/page-*.tif \
            -o test_output.pdf
 ```
 
-**测试矩阵**:
-| hOCR 版本 | PDF 能否生成 | PDF 大小 | 可读性 | 可搜索性 |
+**Test Matrix**:
+| hOCR version | Can PDF be generated | PDF size | Readability | Searchability |
 |-----------|--------------|----------|--------|----------|
-| 原始      | ✓            | ?        | ✓      | ✓        |
-| 空文本    | ?            | ?        | ?      | ✗        |
-| 最小化    | ?            | ?        | ?      | ✗        |
-| 无单词    | ?            | ?        | ?      | ✗        |
-| 无文本行  | ?            | ?        | ?      | ✗        |
+| Original | ✓ | ? | ✓ | ✓ |
+| empty text | ? | ? | ? | ✗ |
+| Minimize | ? | ? | ? | ✗ |
+| No words | ? | ? | ? | ✗ |
+| No text lines | ? | ? | ? | ✗ |
 
-### 第 3 阶段: 整合到生产
+### Phase 3: Integration into production
 
-根据测试结果，选择最优策略：
+Based on the test results, select the optimal strategy:
 
 ```python
 def optimize_hocr_for_compression(hocr_file, strategy='empty_text'):
     """
-    为极限压缩优化 hOCR 文件
+    Optimizing hOCR files for extreme compression
     
     Args:
-        hocr_file: 原始 hOCR 文件路径
-        strategy: 优化策略
-            - 'empty_text': 删除文本内容（推荐）
-            - 'minimal': 简化属性
-            - 'no_words': 删除单词标签
+        hocr_file: original hOCR file path
+        strategy: optimization strategy
+        - 'empty_text': delete text content (recommended)
+        - 'minimal': simplified attributes
+        - 'no_words': delete word tags
     
     Returns:
-        优化后的 hOCR 文件路径
+        Optimized hOCR file path
     """
     pass
 ```
 
 ---
 
-## 📊 预期收益（基于 9.04MB hOCR）
+## 📊 Expected revenue (based on 9.04MB hOCR)
 
-### 保守估计
+### Conservative estimate
 
-| 策略 | 减少率 | 节省空间 | 备注 |
+| Strategy | Reduce Rate | Saving Space | Notes |
 |------|--------|----------|------|
-| 空文本 | 30% | 2.7 MB | 最安全 |
-| 最小化 | 40% | 3.6 MB | 中等风险 |
-| 无单词 | 60% | 5.4 MB | 高风险 |
+| Empty text | 30% | 2.7 MB | Most secure |
+| Minimize | 40% | 3.6 MB | Medium Risk |
+| No words | 60% | 5.4 MB | High risk |
 
-### 乐观估计
+### Optimistic estimate
 
-| 策略 | 减少率 | 节省空间 | 备注 |
+| Strategy | Reduce Rate | Saving Space | Notes |
 |------|--------|----------|------|
-| 空文本 | 50% | 4.5 MB | 文本占比高 |
-| 最小化 | 65% | 5.9 MB | 成功简化属性 |
-| 无单词 | 75% | 6.8 MB | recode_pdf 不依赖 |
+| Empty text | 50% | 4.5 MB | High proportion of text |
+| Minimized | 65% | 5.9 MB | Successfully simplified attributes |
+| No words | 75% | 6.8 MB | recode_pdf does not depend on |
 
-**关键结论**: 即使保守估计，空文本策略也能节省 **2.7 MB**，这对 2MB 目标极其关键！
+**Key takeaway**: Even with a conservative estimate, the empty text strategy saves **2.7 MB**, which is extremely critical against the 2MB target!
 
 ---
 
-## 🛠️ 实现工具
+## 🛠️ Implementation tools
 
-已创建 `hocr_analyzer.py` 工具，包含：
+The `hocr_analyzer.py` tool has been created, containing:
 
-1. ✅ `HocrAnalyzer` 类
-2. ✅ `analyze_structure()` - 结构分析
-3. ✅ `create_empty_hocr()` - 创建空文本版
-4. ✅ `create_minimal_hocr()` - 创建最小版
-5. ✅ `create_no_words_hocr()` - 创建无单词版
-6. ✅ `create_no_lines_hocr()` - 创建无文本行版
-7. ✅ `run_hocr_experiments()` - 完整实验流程
+1. ✅ `HocrAnalyzer` class
+2. ✅ `analyze_structure()` - Structural analysis
+3. ✅ `create_empty_hocr()` - Create an empty text version
+4. ✅ `create_minimal_hocr()` - Create a minimal version
+5. ✅ `create_no_words_hocr()` - Create a word-free version
+6. ✅ `create_no_lines_hocr()` - Create lines without text
+7. ✅ `run_hocr_experiments()` - complete experiment process
 
 ---
 
-## 📝 使用示例
+## 📝 Usage example
 
 ```bash
-# 分析真实的 hOCR 文件
+# Analyze real hOCR files
 python test_hocr/hocr_analyzer.py /tmp/tmpxxx/combined.hocr
 
-# 输出:
-# - 结构分析报告
-# - 各优化版本的文件
-# - 大小对比表
+# Output:
+# - Structural Analysis Report
+# - Files for each optimized version
+# - Size comparison table
 ```
 
 ---
 
-## 🔍 关键发现总结
+## 🔍 Summary of key findings
 
-1. **文本内容是最大的占比** - 可能达到 30-50%
-2. **ocrx_word 标签最多** - 每个单词一个
-3. **中文占用更多空间** - UTF-8 编码，每字符 3 字节
-4. **bbox 信息必须保留** - recode_pdf 需要坐标定位
-5. **删除文本内容最安全** - 保留所有结构和坐标
-
----
-
-## 下一步行动
-
-1. [ ] 运行 `hocr_analyzer.py` 分析真实的 9.04MB hOCR 文件
-2. [ ] 测试各优化版本能否成功生成 PDF
-3. [ ] 对比最终 PDF 大小
-4. [ ] 选择最优策略
-5. [ ] 整合到 `pipeline.py`
+1. **Text content is the largest percentage** - maybe 30-50%
+2. **ocrx_word tags at most** - one for each word
+3. **English takes up more space** - UTF-8 encoding, 3 bytes per character
+4. **bbox information must be retained** - recode_pdf requires coordinate positioning
+5. **Safest to delete text content** - keep all structure and coordinates
 
 ---
 
-**创建日期**: 2025-10-19  
-**研究状态**: 准备就绪  
-**预期收益**: 2.7-6.8 MB 文件大小减少
+## Next action
+
+1. [ ] Run `hocr_analyzer.py` to analyze the real 9.04MB hOCR file
+2. [ ] Test whether each optimized version can successfully generate PDF
+3. [ ] Compare final PDF size
+4. [ ] Select the optimal strategy
+5. [ ] integrated into `pipeline.py`
+
+---
+
+**Creation date**: 2025-10-19
+**Research Status**: Ready
+**Expected Benefit**: 2.7-6.8 MB file size reduction

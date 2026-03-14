@@ -67,7 +67,7 @@ Error: Tesseract couldn't load any languages!
 **è§£å†³æ–¹æ¡ˆï¼š**
 ```bash
 # é‡æ–°å®‰è£…è¯­è¨€åŒ…
-sudo apt install --reinstall tesseract-ocr-chi-sim tesseract-ocr-chi-tra
+sudo apt install --reinstall tesseract-ocr-eng 
 
 # æ£€æŸ¥è¯­è¨€åŒ…
 tesseract --list-langs
@@ -256,7 +256,7 @@ KEEP_INTERMEDIATE_FILES = True
 ```bash
 # å…ˆæµ‹è¯•å•ä¸ªç»„ä»¶
 pdftoppm -tiff -r 300 test.pdf page
-tesseract page-01.tif output -l chi_sim hocr
+tesseract page-01.tif output -l eng hocr
 ```
 
 ### 4. ä½¿ç”¨æµ‹è¯•å·¥å…·

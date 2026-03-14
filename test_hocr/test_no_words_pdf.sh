@@ -1,57 +1,57 @@
 #!/bin/bash
-# hOCR优化 - PDF生成测试脚本
-# 测试删除ocrx_word标签后的hOCR是否能正常生成PDF
+# hOCR Optimization - PDF generation test script
+# Test whether hOCR can generate PDF normally after deleting the ocrx_word tag
 
-set -e  # 遇到错误立即退出
+set -e # Exit immediately when encountering an error
 
 echo "=========================================="
-echo "hOCR优化 PDF生成测试"
-echo "测试目标：验证no_words版本能否生成PDF"
+echo "hOCR optimized PDF generation test"
+echo "Test goal: verify whether the no_words version can generate PDF"
 echo "=========================================="
 
-# 1. 检查必要文件
+# 1. Check necessary files
 echo ""
-echo "[1/5] 检查测试文件..."
+echo "[1/5] Check test files..."
 if [ ! -f "docs/hocr_experiments/combined_no_words.hocr" ]; then
-    echo "❌ 错误：找不到 combined_no_words.hocr"
+    echo "❌ Error: combined_no_words.hocr not found"
     exit 1
 fi
-echo "✅ hOCR文件就绪 ($(du -h docs/hocr_experiments/combined_no_words.hocr | cut -f1))"
+echo "✅ hOCR file ready ($(du -h docs/hocr_experiments/combined_no_words.hocr | cut -f1))"
 
-# 2. 检查原始图像栈
+# 2. Check the original image stack
 echo ""
-echo "[2/5] 检查原始图像栈..."
-# 这里需要你提供原始的 page-*.tif 文件路径
-# 假设它们在某个临时目录或测试目录中
+echo "[2/5] Check original image stack..."
+# Here you need to provide the original page-*.tif file path
+# Assume they are in some temporary or test directory
 if [ -z "$IMAGE_DIR" ]; then
-    echo "⚠️  警告：未设置 IMAGE_DIR 环境变量"
-    echo "请使用: IMAGE_DIR=/path/to/images ./test_no_words_pdf.sh"
+    echo "⚠️ warning: IMAGE_DIR environment variable not set"
+    echo "Please use: IMAGE_DIR=/path/to/images ./test_no_words_pdf.sh"
     exit 1
 fi
 
 if [ ! -d "$IMAGE_DIR" ]; then
-    echo "❌ 错误：图像目录不存在: $IMAGE_DIR"
+    echo "❌ Error: Image directory does not exist: $IMAGE_DIR"
     exit 1
 fi
 
 IMAGE_COUNT=$(ls "$IMAGE_DIR"/page-*.tif 2>/dev/null | wc -l)
 if [ "$IMAGE_COUNT" -eq 0 ]; then
-    echo "❌ 错误：在 $IMAGE_DIR 中找不到 page-*.tif 文件"
+    echo "❌ Error: page-*.tif files not found in $IMAGE_DIR"
     exit 1
 fi
-echo "✅ 找到 $IMAGE_COUNT 个图像文件"
+echo "✅ $IMAGE_COUNT image files found"
 
-# 3. 创建输出目录
+# 3. Create output directory
 echo ""
-echo "[3/5] 准备测试环境..."
+echo "[3/5] Prepare test environment..."
 TEST_DIR="docs/hocr_experiments/pdf_test"
 mkdir -p "$TEST_DIR"
-echo "✅ 测试目录：$TEST_DIR"
+echo "✅ Test directory: $TEST_DIR"
 
-# 4. 运行 recode_pdf (关键测试)
+# 4. Run recode_pdf (key test)
 echo ""
-echo "[4/5] 运行 recode_pdf (使用no_words hOCR)..."
-echo "命令：recode_pdf --from-imagestack $IMAGE_DIR/page-*.tif \\"
+echo "[4/5] Run recode_pdf (using no_words hOCR)..."
+echo "Command: recode_pdf --from-imagestack $IMAGE_DIR/page-*.tif \\"
 echo "                  --hocr-file docs/hocr_experiments/combined_no_words.hocr \\"
 echo "                  --dpi 72 \\"
 echo "                  --bg-downsample 10 \\"
@@ -71,21 +71,21 @@ ELAPSED=$((END_TIME - START_TIME))
 
 echo ""
 if [ -f "$TEST_DIR/test_no_words.pdf" ]; then
-    echo "✅ PDF 生成成功！"
-    echo "   耗时：${ELAPSED}秒"
+    echo "✅ PDF generated successfully!"
+    echo "Time taken: ${ELAPSED} seconds"
 else
-    echo "❌ PDF 生成失败"
+    echo "❌ PDF generation failed"
     exit 1
 fi
 
-# 5. 分析结果
+# 5. Analysis results
 echo ""
-echo "[5/5] 测试结果分析..."
+echo "[5/5] Test result analysis..."
 PDF_SIZE=$(du -h "$TEST_DIR/test_no_words.pdf" | cut -f1)
 PDF_SIZE_MB=$(du -m "$TEST_DIR/test_no_words.pdf" | cut -f1)
-echo "PDF大小：$PDF_SIZE (${PDF_SIZE_MB}MB)"
+echo "PDF size: $PDF_SIZE (${PDF_SIZE_MB}MB)"
 
-# 如果存在原始PDF（使用完整hOCR），进行对比
+# If original PDF exists (using full hOCR), compare
 if [ -n "$ORIGINAL_PDF" ] && [ -f "$ORIGINAL_PDF" ]; then
     ORIGINAL_SIZE_MB=$(du -m "$ORIGINAL_PDF" | cut -f1)
     SAVED_MB=$((ORIGINAL_SIZE_MB - PDF_SIZE_MB))
@@ -93,20 +93,20 @@ if [ -n "$ORIGINAL_PDF" ] && [ -f "$ORIGINAL_PDF" ]; then
     
     echo ""
     echo "=========================================="
-    echo "对比分析"
+    echo "Comparative analysis"
     echo "=========================================="
-    echo "原始PDF (完整hOCR)：${ORIGINAL_SIZE_MB}MB"
-    echo "优化PDF (no_words)：${PDF_SIZE_MB}MB"
-    echo "节省空间：${SAVED_MB}MB (${SAVED_PERCENT}%)"
+    echo "Original PDF (full hOCR): ${ORIGINAL_SIZE_MB}MB"
+    echo "Optimize PDF (no_words): ${PDF_SIZE_MB}MB"
+    echo "Save space: ${SAVED_MB}MB (${SAVED_PERCENT}%)"
 fi
 
 echo ""
 echo "=========================================="
-echo "✅ 测试完成"
+echo "✅ Test completed"
 echo "=========================================="
-echo "输出文件：$TEST_DIR/test_no_words.pdf"
+echo "Output file: $TEST_DIR/test_no_words.pdf"
 echo ""
-echo "下一步："
-echo "1. 打开PDF检查可搜索性"
-echo "2. 测试文本选择和复制功能"
-echo "3. 如果成功，准备集成到 pipeline.py"
+echo "Next step:"
+echo "1. Open PDF to check searchability"
+echo "2. Test text selection and copy functions"
+echo "3. If successful, prepare to be integrated into pipeline.py"

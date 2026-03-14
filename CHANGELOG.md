@@ -1,97 +1,97 @@
-# 更新日志 / Changelog
+# Changelog / Changelog
 
 ## [v2.0.2] - 2025-10-19
 
-### 🔧 关键修复和策略优化 / Critical Fixes & Strategy Optimization
+### 🔧 Critical Fixes & Strategy Optimization / Critical Fixes & Strategy Optimization
 
-#### 🐛 紧急修复 / Critical Bug Fixes
+#### 🐛 Critical Bug Fixes
 
 1. **KeyError: 'size_mb'** (Critical)
-   - **现象**: 拆分策略启动时崩溃
-   - **原因**: `strategy.py` 使用 `'size'` 字段，但 `splitter.py` 期望 `'size_mb'`
-   - **修复**: 统一所有 `all_results` 字典使用 `'size_mb'` 字段
-   - **影响**: 所有需要拆分的场景在 v2.0.1 中全部崩溃
-   - **修改位置**: `compressor/strategy.py` 5 处修改
+   - **Phenomena**: Crash when starting the split strategy
+   - **Cause**: `strategy.py` uses the `'size'` field, but `splitter.py` expects `'size_mb'`
+   - **FIX**: Unify all `all_results` dictionaries to use `'size_mb''` field
+   - **Impact**: All scenes that need to be split crash in v2.0.1
+   - **Modification location**: `compressor/strategy.py` 5 changes
 
-#### ⚡ 策略优化 / Strategy Optimizations
+#### ⚡ Strategy Optimizations
 
-2. **智能失败快速判定**
-   - **问题**: S6 结果 > 8MB 时仍继续尝试 S2-S5，实测浪费 1 小时+
-   - **优化**: S7 > 8MB 时立即失败，避免无意义尝试
-   - **效果**: 大幅减少处理时间
+2. **Intelligent failure rapid determination**
+- **Problem**: Continue to try S2-S5 when S6 result > 8MB, wasting 1 hour+ in actual measurement
+- **Optimization**: Fail immediately when S7 > 8MB to avoid meaningless attempts
+- **Effect**: Significantly reduces processing time
 
-3. **智能目标切换机制**
-   - **新增**: 当 2MB < S7 ≤ 8MB 时，自动将目标从 2MB 切换为 8MB
-   - **目的**: 为后续拆分准备最优母版（最接近 8MB）
-   - **逻辑**: 从 S7 向 S1 回溯，找到 ≤ 8MB 的最大方案
+3. **Intelligent target switching mechanism**
+- **New**: When 2MB < S7 ≤ 8MB, automatically switch the target from 2MB to 8MB
+- **Purpose**: Prepare optimal master (closest to 8MB) for subsequent splits
+- **Logic**: Backtrack from S7 to S1 and find the largest solution ≤ 8MB
 
-4. **拆分前置条件检查**
-   - **新增**: 在启动拆分前检查是否存在 < 8MB 的压缩结果
-   - **效果**: 避免进入注定失败的拆分流程
-   - **修改位置**: `compressor/splitter.py` 新增 12 行
+4. **Split precondition check**
+- **NEW**: Check if compression result < 8MB exists before starting split
+- **Effect**: Avoid entering a split process that is doomed to fail
+- **Modify location**: `compressor/splitter.py` added 12 lines
 
-#### 🚀 性能增强 / Performance Enhancements
+#### 🚀 Performance Enhancements
 
-5. **压缩方案增强**
-   - **S6 增强**: DPI 110→100, BG-Downsample 6→8
-   - **S7 新增**: DPI=72, BG-Downsample=10, Encoder=grok
-   - **目的**: 探索压缩极限，能够处理更大的 PDF 文件
+5. **Compression scheme enhancement**
+- **S6 Enhanced**: DPI 110→100, BG-Downsample 6→8
+- **S7 new**: DPI=72, BG-Downsample=10, Encoder=grok
+- **Purpose**: Explore the limits of compression and be able to handle larger PDF files
 
-#### 📋 完整变更列表 / Full Changes
+#### 📋 Full Changes / Full Changes
 
-**修改文件**:
-- `compressor/strategy.py` - 23 行修改
-  - 5 处字段名称统一
-  - 3 处智能判断逻辑
-  - S6 方案增强，新增 S7 方案
-  - 调整循环范围 (2-6 → 2-7)
-- `compressor/splitter.py` - 12 行新增
-  - 前置条件检查逻辑
+**Modify file**:
+- `compressor/strategy.py` - 23 lines modified
+- Unified field names in 5 places
+- 3 intelligent judgment logics
+- The S6 solution is enhanced and the S7 solution is added
+- Adjust cycle range (2-6 → 2-7)
+- `compressor/splitter.py` - 12 new lines
+- Precondition checking logic
 
-**测试建议**:
+**Testing Suggestions**:
 ```bash
-# 重新测试原失败案例
+# Retest the original failure case
 python main.py -i testpdf156.pdf -o output -t 2 --allow-splitting
 ```
 
-**预期改进**:
-- ✅ 修复拆分策略崩溃
-- ✅ 大幅减少无效压缩尝试时间
-- ✅ 智能选择最优拆分母版
-- ✅ 提升极限压缩能力
+**Expected improvements**:
+- ✅ Fixed split strategy crash
+- ✅Significantly reduce invalid compression attempt time
+- ✅ Intelligently select the optimal split master
+- ✅ Improve ultimate compression capability
 
-#### 🔍 待研究问题 / Future Research
+#### 🔍 Questions to be researched / Future Research
 
-用户提出的重要问题：
-1. 不同 DPI 的 hOCR 对各压缩方案的影响
-2. 空 hOCR 文件在极限压缩下的效果
-3. 为低 DPI 方案生成对应 DPI 的 hOCR
+Important questions asked by users:
+1. The impact of hOCR at different DPI on various compression schemes
+2. The effect of empty hOCR files under extreme compression
+3. Generate hOCR corresponding DPI for low DPI solution
 
-详见: `docs/v2.0.2_关键修复和策略优化.md`
+For details, see: `docs/v2.0.2_Key fixes and strategy optimization.md`
 
 ---
 
 ## [v2.0.1] - 2025-10-19
 
-### 🐛 紧急修复 / Critical Bug Fix
+### 🐛 Critical Bug Fix
 
-#### Bug修复
-- **🔴 Critical**: 修复 `reconstruct_pdf()` 参数名称错误
-  - 错误: 使用了 `images` 和 `hocr` 参数名
-  - 修复: 改为正确的 `image_files` 和 `hocr_file`
-  - 影响: v2.0.0版本完全无法使用，所有压缩操作失败
-  - 错误信息: `TypeError: reconstruct_pdf() got an unexpected keyword argument 'images'`
+#### Bug fixes
+- **🔴 Critical**: Fix `reconstruct_pdf()` parameter name error
+- Error: `images` and `hocr` parameter names used
+- Fix: changed to correct `image_files` and `hocr_file`
+- Impact: Version v2.0.0 is completely unusable and all compression operations fail.
+- Error message: `TypeError: reconstruct_pdf() got an unexpected keyword argument 'images'`
 
-#### 技术细节
+#### Technical details
 ```python
-# 修复前 (v2.0.0) - 错误
+# Before fix (v2.0.0) - BUG
 pipeline.reconstruct_pdf(
     images=precomputed_data['image_files'],  # ❌
     hocr=precomputed_data['hocr_file'],      # ❌
     ...
 )
 
-# 修复后 (v2.0.1) - 正确
+# After fix (v2.0.1) - Correct
 pipeline.reconstruct_pdf(
     image_files=precomputed_data['image_files'],  # ✅
     hocr_file=precomputed_data['hocr_file'],      # ✅
@@ -99,14 +99,14 @@ pipeline.reconstruct_pdf(
 )
 ```
 
-#### 受影响版本
-- ❌ v2.0.0: 完全无法使用，必须立即更新
+#### Affected versions
+- ❌ v2.0.0: completely unusable and must be updated immediately
 
-#### 提交记录
-- `211141a` - fix: 修复reconstruct_pdf参数名称错误
+#### Submit record
+- `211141a` - fix: fix reconstruct_pdf parameter name error
 
-#### 升级建议
-**所有v2.0.0用户必须立即升级到v2.0.1！**
+#### Upgrade suggestions
+**All v2.0.0 users must upgrade to v2.0.1 immediately! **
 
 ```bash
 git pull origin main
@@ -116,152 +116,152 @@ git pull origin main
 
 ## [v2.0.0] - 2025-10-18
 
-### 🎉 重大更新 / Major Updates
+### 🎉 Major Updates
 
-#### 算法重构 / Algorithm Refactoring
-- **二分双向搜索算法**: 完全重写压缩策略，采用智能跳跃和向上回溯机制
-- **纯物理拆分策略**: 拆分时复用压缩中间结果，不重新压缩
-- **6方案压缩策略**: S1-S6六级压缩方案，智能选择最优质量
+#### Algorithm Refactoring
+- **Binary Bidirectional Search Algorithm**: Completely rewrites the compression strategy, using intelligent jump and upward backtracking mechanisms
+- **Pure physical splitting strategy**: Reuse the compression intermediate results during splitting without re-compression
+- **6-scheme compression strategy**: S1-S6 six-level compression scheme, intelligently select the best quality
 
-#### 性能提升 / Performance Improvements
-- ⚡ 压缩处理时间降低 **77%** (420秒 → 95秒)
-- ⚡ 拆分处理时间降低 **99.2%** (1800秒 → 15秒)
-- ⚡ DAR执行次数降低 **80%** (5次 → 1次)
-- 🎯 质量更优：向上回溯确保最佳质量
+#### Performance Improvements
+- ⚡ Compression processing time reduced by **77%** (420 seconds → 95 seconds)
+- ⚡ Split processing time reduced by **99.2%** (1800 seconds → 15 seconds)
+- ⚡ The number of DAR executions is reduced by **80%** (5 times → 1 time)
+- 🎯 Better quality: Backtracking ensures the best quality
 
-#### 新增功能 / New Features
-- ✨ 手动模式 (`-m, --manual`): 支持交互式参数输入
-- ✨ 参数示例显示 (`-?, --examples`): 快速查看使用示例
-- ✨ 保留临时目录 (`-k, --keep-temp-on-failure`): 失败时保留临时文件便于调试
-- ✨ UTF-8编码支持: 完善Windows PowerShell中文显示
+#### New Features / New Features
+- ✨ Manual mode (`-m, --manual`): supports interactive parameter input
+- ✨ Parameter example display (`-?, --examples`): Quickly view usage examples
+- ✨ Keep temporary directory (`-k, --keep-temp-on-failure`): Keep temporary files on failure for debugging
+- ✨ UTF-8 encoding support: Improve Windows PowerShell English display
 
-#### 用户体验改进 / UX Improvements
-- 🔧 参数简化: `--output-dir` → `--output`
-- 📊 更详细的日志输出
-- 🎨 优化的进度提示
-- 🐛 修复多个编码问题
+#### UX Improvements
+- 🔧 Parameter simplification: `--output-dir` → `--output`
+- 📊 More detailed log output
+- 🎨 Optimized progress prompts
+- 🐛 Fixed multiple encoding issues
 
-### 📝 代码改进 / Code Improvements
+### 📝 Code Improvements / Code Improvements
 
-#### 核心模块重写
-- **compressor/strategy.py**: 完全重构，实现二分双向搜索算法
-  - `run_compression_strategy()`: 新的压缩策略入口
-  - `_precompute_dar_steps()`: DAR预计算，复用中间结果
-  - `_run_strategy_logic()`: 智能搜索逻辑
-  - `_execute_scheme()`: 单方案执行
+#### Core module rewriting
+- **compressor/strategy.py**: Completely reconstructed to implement binary bidirectional search algorithm
+- `run_compression_strategy()`: new compression strategy entry
+- `_precompute_dar_steps()`: DAR precomputation and reuse of intermediate results
+- `_run_strategy_logic()`: intelligent search logic
+- `_execute_scheme()`: Single scheme execution
   
-- **compressor/splitter.py**: 完全重构，实现纯物理拆分
-  - `run_splitting_strategy()`: 新的拆分策略入口
-  - `_select_splitting_source()`: 智能源文件选择
-  - `_determine_optimal_split_count()`: 密度基拆分数计算
-  - `_calculate_split_plan()`: 页面分配方案
-  - `_split_pdf_physical()`: qpdf物理拆分
+- **compressor/splitter.py**: Completely reconstructed to achieve pure physical splitting
+- `run_splitting_strategy()`: new splitting strategy entry
+- `_select_splitting_source()`: smart source file selection
+- `_determine_optimal_split_count()`: Density basis split number calculation
+- `_calculate_split_plan()`: page allocation plan
+- `_split_pdf_physical()`: qpdf physical split
 
-#### 集成改进
-- **orchestrator.py**: 更新流程调度逻辑
-  - 支持新的返回格式 `(status, details)`
-  - 传递 `all_results` 给拆分模块
+#### Integration improvements
+- **orchestrator.py**: Update process scheduling logic
+- Support new return format `(status, details)`
+- Pass `all_results` to the split module
   
-- **main.py**: 增强命令行接口
-  - UTF-8编码配置
-  - 新增3个命令行参数
-  - 优化帮助信息显示
+- **main.py**: Enhanced command line interface
+- UTF-8 encoding configuration
+- Added 3 new command line parameters
+- Optimize help information display
 
-- **compressor/utils.py**: 工具函数优化
-  - 简化日志配置
-  - 改进错误处理
+- **compressor/utils.py**: tool function optimization
+- Simplified log configuration
+- Improved error handling
 
-### 🧪 测试 / Testing
+### 🧪 Testing / Testing
 
-#### 新增测试
-- **tests/test_new_strategy.py**: 压缩策略单元测试
-  - ✅ 渐进式压缩成功测试
-  - ✅ 跳跃回溯成功测试
-  - ✅ 全部失败处理测试
-  - ✅ 小文件跳过测试
-  - **测试通过率: 100% (4/4)**
+#### Add test
+- **tests/test_new_strategy.py**: compression strategy unit test
+- ✅ Progressive compression successfully tested
+- ✅ Jump backtracking successfully tested
+- ✅ All failed processing tests
+- ✅ Small files skip testing
+- **Test pass rate: 100% (4/4)**
 
-- **test_parameters.py**: 参数验证测试
-  - ✅ 14个参数全部验证通过
+- **test_parameters.py**: parameter verification test
+- ✅ All 14 parameters have been verified
 
-### 📚 文档更新 / Documentation Updates
+### 📚 Documentation Updates / Documentation Updates
 
-#### 核心文档
-- **README.md**: 全面更新
-  - 功能特性描述
-  - 算法说明重写
-  - 参数表格更新
-  - 使用示例更新
-  - 添加v2.0更新日志
+#### Core Documentation
+- **README.md**: Fully updated
+- Description of functional features
+- Algorithm description rewritten
+- Parameter table update
+- Updated with examples
+- Add v2.0 update log
 
-#### 新增文档
-- **docs/算法实现说明.md**: 详细技术文档 (约7000字)
-  - 算法设计理念
-  - 二分双向搜索算法详解
-  - 纯物理拆分算法详解
-  - 性能分析和测试验证
+#### Add new document
+- **docs/Algorithm Implementation Description.md**: Detailed technical documentation (about 7000 words)
+- Algorithm design concepts
+- Detailed explanation of binary bidirectional search algorithm
+- Detailed explanation of pure physical splitting algorithm
+- Performance analysis and test verification
   
-- **docs/文档更新日志.md**: 文档更新记录
-  - 完整的文档更新列表
-  - 文档阅读建议
-  - 质量保证清单
+- **docs/Document Update Log.md**: Document update record
+- Complete list of documentation updates
+- Document reading suggestions
+- Quality assurance checklist
 
-#### 更新文档
-- **docs/策略分析报告.md**: 重构为"分析与实现报告"
-  - 新增第5章：新算法实现说明
-  - 更新总结部分
+#### Update documentation
+- **docs/Strategy Analysis Report.md**: Refactored into "Analysis and Implementation Report"
+- Added Chapter 5: New Algorithm Implementation Instructions
+- Update summary section
   
-- **docs/QUICKSTART.md**: 快速开始指南更新
-- **docs/WINDOWS_GUIDE.md**: Windows指南参数更新
-- **docs/TROUBLESHOOTING.md**: 故障排除参数更新
-- **docs/DEPLOYMENT_SUMMARY.md**: 部署摘要更新
-- **docs/项目架构第一版.md**: 添加v2.0说明
+- **docs/QUICKSTART.md**: Quick Start Guide updated
+- **docs/WINDOWS_GUIDE.md**: Windows Guide parameters updated
+- **docs/TROUBLESHOOTING.md**: Troubleshooting parameters updated
+- **docs/DEPLOYMENT_SUMMARY.md**: Deployment summary update
+- **docs/Project Architecture Version 1.md**: Add v2.0 description
 
-### 🔧 技术细节 / Technical Details
+### 🔧 Technical Details / Technical Details
 
-#### 压缩方案定义
+#### Compression scheme definition
 ```python
 COMPRESSION_SCHEMES = {
-    'S1': {'dpi': 300, 'bg_downsample': 2},  # 高质量
-    'S2': {'dpi': 250, 'bg_downsample': 3},  # 适度降低
-    'S3': {'dpi': 200, 'bg_downsample': 4},  # 平衡
-    'S4': {'dpi': 150, 'bg_downsample': 5},  # 激进
-    'S5': {'dpi': 120, 'bg_downsample': 5},  # 更激进
-    'S6': {'dpi': 110, 'bg_downsample': 6},  # 极限
+    'S1': {'dpi': 300, 'bg_downsample': 2}, # High quality
+    'S2': {'dpi': 250, 'bg_downsample': 3}, # Moderate reduction
+    'S3': {'dpi': 200, 'bg_downsample': 4}, # Balance
+    'S4': {'dpi': 150, 'bg_downsample': 5}, # aggressive
+    'S5': {'dpi': 120, 'bg_downsample': 5}, # More aggressive
+    'S6': {'dpi': 110, 'bg_downsample': 6}, # limit
 }
 ```
 
-#### 关键算法特性
-- **智能跳跃**: S1失败且结果>1.5倍目标时，直接跳至S6
-- **向上回溯**: S6成功后，测试S5→S4→S3→S2找最优质量
-- **DAR复用**: 阶段1-2只执行一次，所有方案复用hOCR
-- **密度分配**: 基于文件大小和页数计算最优拆分方案
+#### Key algorithm features
+- **Smart Jump**: When S1 fails and the result is >1.5 times the target, jump directly to S6
+- **Backtracking**: After S6 is successful, test S5→S4→S3→S2 to find the best quality
+- **DAR reuse**: Phases 1-2 are only executed once, and hOCR is reused in all solutions
+- **Density Allocation**: Calculate the optimal splitting solution based on file size and page count
 
-### 🐛 Bug修复 / Bug Fixes
-- 🔧 修复函数名称不匹配问题 (`create_temp_dir` → `create_temp_directory`)
-- 🔧 修复UTF-8编码错误（Windows PowerShell）
-- 🔧 修复缩进导致的逻辑错误
-- 🔧 修复测试数据不匹配问题
+### 🐛 Bug Fixes / Bug Fixes
+- 🔧 Fix function name mismatch problem (`create_temp_dir` → `create_temp_directory`)
+- 🔧 Fix UTF-8 encoding error (Windows PowerShell)
+- 🔧 Fix logic errors caused by indentation
+- 🔧 Fix test data mismatch problem
 
-### 📦 依赖变更 / Dependencies
-- 无依赖变更，继续使用：
+### 📦 Dependencies / Dependencies
+- No dependency changes, continue to use:
   - archive-pdf-tools (recode_pdf)
   - poppler-utils (pdftoppm, pdfinfo)
   - tesseract-ocr
   - qpdf
 
-### ⚠️ 破坏性变更 / Breaking Changes
-- 参数名称变更: `--output-dir` → `--output`
-  - 内部通过 `dest="output_dir"` 保持代码兼容
-  - 用户需更新命令行脚本
+### ⚠️ Breaking Changes
+- Parameter name change: `--output-dir` → `--output`
+- Internally maintain code compatibility through `dest="output_dir"`
+- Users need to update the command line script
   
-- 返回值格式变更:
-  - 旧: 单个布尔值或路径
-  - 新: `(status, details)` 元组
+- Return value format changes:
+- old: single boolean or path
+- New: `(status, details)` tuple
 
-### 🎯 迁移指南 / Migration Guide
+### 🎯 Migration Guide / Migration Guide
 
-#### 命令行参数更新
+#### Command line parameter update
 ```bash
 # v1.0
 python main.py --input file.pdf --output-dir ./out
@@ -270,7 +270,7 @@ python main.py --input file.pdf --output-dir ./out
 python main.py --input file.pdf --output ./out
 ```
 
-#### 代码集成更新
+#### Code integration update
 ```python
 # v1.0
 success = run_iterative_compression(pdf, output, target)
@@ -285,25 +285,25 @@ if status == 'success':
 
 ## [v1.0.0] - 2024-10-09
 
-### 初始版本发布 / Initial Release
-- ✨ 实现完整的DAR处理流程
-- ✨ 支持分层压缩策略
-- ✨ 集成PDF拆分功能
-- ✨ 添加详细日志记录
-- 📚 完整的项目文档
+### Initial Release / Initial Release
+- ✨ Implement a complete DAR processing process
+- ✨ Support layered compression strategy
+- ✨ Integrated PDF splitting function
+- ✨ Add detailed logging
+- 📚 Complete project documentation
 
 ---
 
-## 版本说明 / Version Notes
+## Version Notes / Version Notes
 
-本项目遵循 [语义化版本 2.0.0](https://semver.org/lang/zh-CN/) 规范。
+This project follows the [Semantic Version 2.0.0](https://semver.org/lang/zh-CN/) specification.
 
-- **主版本号**: 不兼容的API修改
-- **次版本号**: 向下兼容的功能性新增
-- **修订号**: 向下兼容的问题修正
+- **Major Version Number**: Incompatible API modifications
+- **Minor version number**: Backwards compatible functional additions
+- **Revision**: Backward compatibility bug fixes
 
 ---
 
-**维护者**: quying2024  
-**项目地址**: https://github.com/quying2024/pdf_compressor  
-**许可证**: MIT License
+**Maintainer**: quying2024
+**Project address**: https://github.com/quying2024/pdf_compressor
+**License**: MIT License

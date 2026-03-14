@@ -1,136 +1,136 @@
 #!/bin/bash
 
 # ==============================================================================
-# archive-pdf-tools 最终功能验证脚本 (verify.sh) - qpdf 版
+# archive-pdf-tools Final function verification script (verify.sh) - qpdf version
 # ------------------------------------------------------------------------------
-# 功能: 验证 Grok, OpenJPEG, qpdf 均可正常工作。
+# Function: Verify that Grok, OpenJPEG, and qpdf can work normally.
 # ==============================================================================
 
-# --- 配置 ---
+# --- Configuration ---
 all_ok=true
 test_dir=""
-export PATH="$PATH:$HOME/.local/bin" # 确保 pipx 命令可用
-# 修正 jbig2enc 的参数顺序，解决 WSL 管道语法问题
+export PATH="$PATH:$HOME/.local/bin" # Make sure the pipx command is available
+# Correct the parameter order of jbig2enc to solve the WSL pipeline syntax problem
 export RECODE_PDF_JBIG2ENC_ARGS="--output-file={output} {input}" 
 
-# --- 辅助函数 (用于彩色输出) ---
+# --- Helper function (for color output) ---
 print_info() { echo -e "\n\e[34m==> $1\e[0m"; }
 print_success() { echo -e "  \e[32m✔ $1\e[0m"; }
 print_error() { echo -e "  \e[31m✖ $1\e[0m"; }
 print_step() { echo -e "  - $1"; }
-# 集中处理验证失败，并保留文件
+# Centrally handle verification failures and keep files
 handle_failure() {
-    print_error "💥 功能验证失败。请仔细检查上面的日志。"
-    print_info "保留临时文件用于调试..."
-    echo "  临时文件位于: $test_dir"
-    cd ~ # 返回主目录
+    print_error "💥 Function verification failed. Please check the log above carefully."
+    print_info "Keep temporary files for debugging..."
+    echo "The temporary file is located at: $test_dir"
+    cd ~ # Return to the home directory
     exit 1
 }
 
-# --- 脚本开始 ---
+# --- Script starts ---
 echo "============================================================"
-echo "开始 archive-pdf-tools 功能验证测试 (qpdf 双工具验证)..."
+echo "Start archive-pdf-tools functional verification test (qpdf dual tool verification)..."
 echo "============================================================"
 
-# --- 步骤 1: 验证所有已安装的工具 ---
-print_info "步骤 1/5: 验证所有已安装的关键工具命令..."
+# --- Step 1: Verify all installed tools ---
+print_info "Step 1/5: Verify all installed key tool commands..."
 
-print_step "检查关键依赖命令..."
+print_step "Check key dependency commands..."
 # Grok, OpenJPEG, qpdf, recode_pdf
 tools=("pdftoppm" "tesseract" "jbig2" "grk_compress" "opj_compress" "qpdf" "recode_pdf")
 for tool in "${tools[@]}"; do
     if command -v "$tool" &> /dev/null; then
-        print_success "$tool 命令已找到 ($tool)。"
+        print_success "$tool command found ($tool)."
     else
-        print_error "$tool 命令未找到！"
+        print_error "$tool command not found!"
         all_ok=false
     fi
 done
 
 if [ "$all_ok" = false ]; then
-    print_error "\n基础命令检查失败，无法继续进行工作流测试。"
+    print_error "\nBasic command check failed and workflow testing cannot continue."
     handle_failure
 fi
 
-# --- 步骤 2: 准备测试文件 (创建包含两页的 PDF) ---
-print_info "步骤 2/5: 准备端到端工作流测试文件 (创建 2 页 PDF)..."
+# --- Step 2: Prepare test file (create a two-page PDF) ---
+print_info "Step 2/5: Prepare end-to-end workflow test file (create 2-page PDF)..."
 test_dir=$(mktemp -d)
 cd "$test_dir"
-print_step "在临时目录创建测试文件: $test_dir"
+print_step "Create a test file in the temporary directory: $test_dir"
 
-# 创建一个包含两页文本的PDF
+# Create a PDF containing two pages of text
 echo -e "Page 1" > page1.txt
-echo -e "\n\n\nPage 2" > page2.txt # 确保是单独一页
+echo -e "\n\n\nPage 2" > page2.txt # Make sure it is a separate page
 enscript -o temp.ps page1.txt page2.txt &> /dev/null
 ps2pdf temp.ps test_2page.pdf &> /dev/null
 rm -f temp.ps page1.txt page2.txt
 
-if ! [ -s "test_2page.pdf" ]; then print_error "创建 2 页 PDF 失败！"; handle_failure; fi
-print_success "成功创建 2 页测试 PDF (test_2page.pdf)。"
+if ! [ -s "test_2page.pdf" ]; then print_error "Failed to create 2 page PDF!"; handle_failure; fi
+print_success "Successfully created 2-page test PDF (test_2page.pdf)."
 
-# 继续创建单页的 recode 输入文件
+# Continue to create a single-page recode input file
 pdftoppm -png -r 300 test_2page.pdf test_page &> /dev/null
 tesseract test_page-1.png test_hocr -l eng hocr &> /dev/null
-print_success "成功创建 recode 所需的 PNG 和 hOCR 文件。"
+print_success "Successfully created PNG and hOCR files required for recode."
 
 
-# --- 步骤 3: 验证 Grok 压缩 ---
-print_info "步骤 3/5: 验证 Grok (grk_compress) 压缩功能..."
+# --- Step 3: Verify Grok Compression ---
+print_info "Step 3/5: Verify Grok (grk_compress) compression functionality..."
 RECODE_CMD_GROK="timeout 1m recode_pdf -v --from-imagestack 'test_page-1.png' --hocr-file 'test_hocr.hocr' --dpi 300 --mask-compression jbig2 -J grok -o 'compressed_grok.pdf'"
 
-print_step "执行 Grok 压缩测试..."
+print_step "Perform Grok compression test..."
 eval $RECODE_CMD_GROK &> recode_grok_log.txt
-if [[ ${PIPESTATUS[0]} -ne 0 ]] && [[ ${PIPESTATUS[0]} -ne 124 ]]; then # 确保检查的是 eval 命令的退出状态
-    print_error "(Grok 测试) 压缩失败 (退出码: ${PIPESTATUS[0]})！"
+if [[ ${PIPESTATUS[0]} -ne 0 ]] && [[ ${PIPESTATUS[0]} -ne 124 ]]; then # Make sure to check the exit status of the eval command
+print_error "(Grok test) Compression failed (exit code: ${PIPESTATUS[0]})!"
     all_ok=false
 elif ! [ -s "compressed_grok.pdf" ]; then
-    print_error "(Grok 测试) 压缩超时或失败！"
+    print_error "(Grok Test) Compression timed out or failed!"
     all_ok=false
 else
-    print_success "(Grok 测试) 成功创建压缩PDF (compressed_grok.pdf)。"
+    print_success "(Grok test) Successfully created compressed PDF (compressed_grok.pdf)."
 fi
 
 
-# --- 步骤 4: 验证 OpenJPEG 压缩 ---
-print_info "步骤 4/5: 验证 OpenJPEG (opj_compress) 压缩功能..."
+# --- Step 4: Verify OpenJPEG compression ---
+print_info "Step 4/5: Verify OpenJPEG (opj_compress) compression capabilities..."
 RECODE_CMD_OPENJPEG="timeout 1m recode_pdf -v --from-imagestack 'test_page-1.png' --hocr-file 'test_hocr.hocr' --dpi 300 --mask-compression jbig2 -J openjpeg -o 'compressed_openjpeg.pdf'"
 
-print_step "执行 OpenJPEG 压缩测试..."
+print_step "Perform OpenJPEG compression test..."
 eval $RECODE_CMD_OPENJPEG &> recode_openjpeg_log.txt
 if [[ ${PIPESTATUS[0]} -ne 0 ]] && [[ ${PIPESTATUS[0]} -ne 124 ]]; then
-    print_error "(OpenJPEG 测试) 压缩失败 (退出码: ${PIPESTATUS[0]})！"
+    print_error "(OpenJPEG test) Compression failed (exit code: ${PIPESTATUS[0]})!"
     all_ok=false
 elif ! [ -s "compressed_openjpeg.pdf" ]; then
-    print_error "(OpenJPEG 测试) 压缩超时或失败！"
+    print_error "(OpenJPEG test) Compression timed out or failed!"
     all_ok=false
 else
-    print_success "(OpenJPEG 测试) 成功创建压缩PDF (compressed_openjpeg.pdf)。"
+    print_success "(OpenJPEG test) Successfully created compressed PDF (compressed_openjpeg.pdf)."
 fi
 
 
-# --- 步骤 5: 验证 qpdf 拆分功能 ---
-print_info "步骤 5/5: 验证 qpdf PDF 拆分功能..."
-print_step "正在使用 qpdf 拆分 test_2page.pdf..."
+# --- Step 5: Verify qpdf splitting function ---
+print_info "Step 5/5: Verify qpdf PDF splitting functionality..."
+print_step "Using qpdf to split test_2page.pdf..."
 
-# 尝试将第二页拆分出来
+# Try to split the second page
 qpdf --empty --pages test_2page.pdf 2 -- split_page2.pdf 2>/dev/null
 
 if [ -s "split_page2.pdf" ]; then
-    print_success "(qpdf 测试) 成功将 PDF 拆分为 split_page2.pdf。"
+    print_success "(qpdf test) Successfully split PDF into split_page2.pdf."
 else
-    print_error "(qpdf 测试) 拆分 PDF 失败！"
+    print_error "(qpdf test) Split PDF failed!"
     all_ok=false
 fi
 
 
-# --- 最终总结与清理 ---
+# --- Final summary and cleanup ---
 if [ "$all_ok" = true ]; then
-    print_info "清理临时验证文件..."
+    print_info "Clean up temporary verification files..."
     rm -rf "$test_dir"
     echo "============================================================"
-    echo -e "\e[32m🎉 全部验证成功！所有工具均可正常工作。\e[0m"
+    echo -e "\e[32m🎉 All verifications are successful! All tools can work normally.\e[0m"
     echo "============================================================"
-    cd ~ # 返回主目录
+    cd ~ # Return to the home directory
 else
     handle_failure
 fi

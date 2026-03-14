@@ -1,25 +1,25 @@
 #!/bin/bash
-# 超简单测试脚本 - 在临时目录中测试 hOCR 优化
+# Super simple test script - test hOCR optimization in temporary directory
 
-echo "=== hOCR 优化测试（简化版）==="
+echo "=== hOCR optimization test (simplified version)==="
 echo ""
 
-# 检查是否有图像文件
+# Check if there is an image file
 if ! ls page-*.tif 1> /dev/null 2>&1; then
-    echo "❌ 当前目录没有 page-*.tif 文件"
-    echo "请先 cd 到包含图像的目录（如 /tmp/tmpXXXXXX）"
+    echo "❌ There is no page-*.tif file in the current directory"
+    echo "Please cd to the directory containing the image first (such as /tmp/tmpXXXXXX)"
     exit 1
 fi
 
 IMAGE_COUNT=$(ls page-*.tif 2>/dev/null | wc -l)
-echo "✅ 找到 $IMAGE_COUNT 个图像文件"
+echo "✅ $IMAGE_COUNT image files found"
 echo ""
 
-# 检查是否已有优化后的 hOCR
+# Check if there is already optimized hOCR
 if [ ! -f "combined_no_words.hocr" ]; then
-    echo "📥 未找到优化后的 hOCR，正在从项目复制..."
+    echo "📥 Optimized hOCR not found, copying from project..."
     
-    # 尝试多个可能的源路径
+    # Try multiple possible source paths
     POSSIBLE_SOURCES=(
         "$HOME/pdf_compressor/docs/hocr_experiments/combined_no_words.hocr"
         "/mnt/c/Users/quying/Projects/pdf_compressor/docs/hocr_experiments/combined_no_words.hocr"
@@ -29,7 +29,7 @@ if [ ! -f "combined_no_words.hocr" ]; then
     for src in "${POSSIBLE_SOURCES[@]}"; do
         if [ -f "$src" ]; then
             cp "$src" ./combined_no_words.hocr
-            echo "✅ 已复制: $(basename "$src")"
+            echo "✅ Copied: $(basename "$src")"
             COPIED=true
             break
         fi
@@ -37,12 +37,12 @@ if [ ! -f "combined_no_words.hocr" ]; then
     
     if [ "$COPIED" = false ]; then
         echo ""
-        echo "❌ 无法找到优化后的 hOCR 文件"
+        echo "❌ Unable to find optimized hOCR file"
         echo ""
-        echo "请手动复制文件到当前目录："
+        echo "Please manually copy the file to the current directory:"
         echo "  cp /path/to/combined_no_words.hocr ."
         echo ""
-        echo "或者使用原始临时目录中的 combined.hocr："
+        echo "Or use combined.hocr from the original temporary directory:"
         echo "  recode_pdf --from-imagestack page-*.tif \\"
         echo "      --hocr-file combined.hocr \\"
         echo "      --dpi 72 --bg-downsample 10 -J grok \\"
@@ -51,13 +51,13 @@ if [ ! -f "combined_no_words.hocr" ]; then
     fi
 fi
 
-echo "📄 hOCR 文件: combined_no_words.hocr ($(du -h combined_no_words.hocr | cut -f1))"
-echo "🖼️  图像数量: $IMAGE_COUNT"
+echo "📄 hOCR file: combined_no_words.hocr ($(du -h combined_no_words.hocr | cut -f1))"
+echo "🖼️ Number of images: $IMAGE_COUNT"
 echo ""
-echo "开始生成 PDF..."
+echo "Start generating PDF..."
 echo ""
 
-# 执行 recode_pdf
+# Execute recode_pdf
 recode_pdf --from-imagestack page-*.tif \
     --hocr-file combined_no_words.hocr \
     --dpi 72 \
@@ -65,27 +65,27 @@ recode_pdf --from-imagestack page-*.tif \
     -J grok \
     -o test_no_words.pdf
 
-# 检查结果
+# Check results
 if [ $? -eq 0 ] && [ -f "test_no_words.pdf" ]; then
     echo ""
     echo "=========================================="
-    echo "✅ 成功！PDF 已生成"
+    echo "✅ Success! PDF generated"
     echo "=========================================="
-    echo "文件: test_no_words.pdf"
-    echo "大小: $(du -h test_no_words.pdf | cut -f1)"
+    echo "File: test_no_words.pdf"
+    echo "Size: $(du -h test_no_words.pdf | cut -f1)"
     echo ""
-    echo "下一步："
-    echo "1. 检查 PDF 质量: 打开 test_no_words.pdf"
-    echo "2. 对比原始版本（如果有 combined.hocr）:"
+    echo "Next step:"
+    echo "1. Check PDF quality: open test_no_words.pdf"
+    echo "2. Compare to original version (if combined.hocr is available):"
     echo "   recode_pdf --from-imagestack page-*.tif \\"
     echo "       --hocr-file combined.hocr \\"
     echo "       --dpi 72 --bg-downsample 10 -J grok \\"
     echo "       -o test_original.pdf"
-    echo "3. 对比文件大小:"
+    echo "3. Compare file sizes:"
     echo "   ls -lh test_*.pdf"
 else
     echo ""
-    echo "❌ PDF 生成失败"
-    echo "请检查上面的错误信息"
+    echo "❌ PDF generation failed"
+    echo "Please check the error message above"
     exit 1
 fi

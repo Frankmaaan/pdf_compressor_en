@@ -1,1 +1,1 @@
-在windows下的WSL环境下，安装一个干净的Ubuntu24.04系统，然后使用普通用户（一定是普通用户）执行安装（install_pdf_tools.sh）和验证（verify.sh）脚本即可。
+In the WSL environment under Windows, install a clean Ubuntu24.04 system, and then use an ordinary user (must be an ordinary user) to execute the installation (install_pdf_tools.sh) and verification (verify.sh) scripts.
