@@ -6,6 +6,7 @@ TARGET_LANG = 'en'
 EXTENSIONS_TO_TRANSLATE = {'.sh', '.bat', '.py', '.md', '.txt', '.json', '.yml', '.yaml', '.html'}
 TEXT_REPLACEMENTS = {
     "tesseract-ocr-chi-sim": "tesseract-ocr-eng",
+    "tesseract-ocr-chi-tra": "",
     "chi_sim": "eng",
     "Chinese": "English",
     "chinese": "english",
